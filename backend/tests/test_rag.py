@@ -145,3 +145,16 @@ def test_answers_are_rate_limited(client):
         for _ in range(11)
     ]
     assert codes[-1] == 429 and codes[:10] == [200] * 10
+
+
+@pytest.mark.parametrize(
+    "question, expected",
+    [
+        ("로그를 검색하려면?", "Korean"),
+        ("ログの検索は?", "Japanese"),
+        ("如何搜索?", "Chinese"),
+        ("How?", "same language"),
+    ],
+)
+def test_language_rule_names_the_question_language(question, expected):
+    assert expected in service.language_rule(question)
