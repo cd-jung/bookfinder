@@ -1,6 +1,6 @@
 # Test Coverage
 
-The **Coverage** page shows how much of the app is checked by automated tests. It is rebuilt on every deployment.
+The **Coverage** page shows how much of BookFinder is checked by automated tests. It is rebuilt on every deployment.
 
 ## What the page shows
 

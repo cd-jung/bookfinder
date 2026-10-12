@@ -13,7 +13,8 @@ export interface Message {
   text: string;
   sources?: Source[];
   error?: boolean;
-  question?: string; // for Retry on an error message
+  stopped?: boolean;
+  question?: string; // the question this message answers (Retry, feedback)
 }
 
 const KEY = 'help-chat-messages';

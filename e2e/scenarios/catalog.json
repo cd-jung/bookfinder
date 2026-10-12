@@ -1,78 +1,1466 @@
 {
-  "_comment": "E2E scenario catalog. Edit by hand together with ux-flows/*.md and tests/*.spec.js (see CLAUDE.md). Each scenario's nodes are '<flow prefix>:<node id>' in ux-flows.",
+  "_comment": "BookFinder E2E scenario catalog, from poc_samples/e2e/scenarios/catalog.json. The chatbot is the User Guide Help assistant (RAG over docs/user-guide); catalogue-chat scenarios DET-007, CHAT-008, CHAT-010, GRD-004 and SAFE-003 were removed. Journeys 8-10 come from the project template. Edit together with ux-flows and e2e/tests (AGENTS.md).",
   "_priority_rules": {
     "_how_to_apply": "A scenario is 'core' if at least one core rule applies; otherwise it is 'secondary'. Record the deciding rule in 'rule' (the core rule wins when several apply).",
     "core": {
-      "C1": "Page availability - every page and main section loads without error.",
-      "C2": "Search / data correctness - searches and lists return exactly the matching records.",
-      "C3": "Grounded answers - the assistant answers only from the User Guide and links to it.",
-      "C4": "AI safety & guard rails - generated filters are validated, out-of-scope questions are refused.",
-      "C5": "Failure handling on core paths - backend or LLM failure shows a recoverable message."
+      "C1": "Page availability - the page and each main section (search, results, detail, chat) load without error.",
+      "C2": "Search correctness - keyword, filters and natural language search return exactly the books that match.",
+      "C3": "Grounded answers - the chatbot answers only from the catalogue, cites existing books, and says so when it does not know.",
+      "C4": "AI safety & guard rails - generated filters are validated, prompt injection / out-of-scope / personal-data requests are refused, output is rendered safely.",
+      "C5": "Failure handling on core paths - backend or LLM failure shows a recoverable message instead of a broken page."
     },
     "secondary": {
-      "S1": "In-page UI behaviour - tabs, chips, pagination, open / close.",
-      "S2": "Informational content - counts, badges, disclaimers, placeholders.",
-      "S3": "Viewport / accessibility variant - mobile layout, keyboard only, screen reader.",
-      "S4": "Negative / edge input - blank, too long, invalid values.",
-      "S5": "Shortcut / URL state - deep links, back / forward, reload restore."
+      "S1": "In-page UI behaviour - sort, view toggle, chips, pagination, copy, open / close.",
+      "S2": "Informational content - counts, badges, tooltips, disclaimers, placeholders.",
+      "S3": "Viewport / accessibility variant - mobile layout, keyboard only, screen reader, axe scan.",
+      "S4": "Negative / edge input - blank, too long, invalid ranges, special characters.",
+      "S5": "Shortcut / URL state - deep links, back / forward, reload restore.",
+      "S6": "Feedback & telemetry - thumbs up / down, comments."
     }
   },
   "accounts": {
-    "_note": "No login. These are test contexts, not user accounts.",
-    "anonymous": "Desktop Chrome, local stack with LLM_MODE=stub",
+    "_note": "BookFinder has no login. These are test contexts, not user accounts.",
+    "anonymous": "Desktop Chrome, no stored state, real or stubbed backend",
     "anonymous_mobile": "Mobile viewport (Pixel 7)",
+    "keyboard": "Desktop, keyboard-only navigation",
+    "screen_reader": "Desktop, checks ARIA roles / live regions (axe + role queries)",
+    "llm_stub": "Desktop, local stack with LLM_MODE=stub: deterministic NL filters (catalogue examples) and keyword retrieval over the User Guide",
     "llm_down": "Desktop, AI endpoints answer 502 / 503 (Playwright route interception)",
-    "api_down": "Desktop, data endpoints answer 500 (Playwright route interception)"
+    "api_down": "Desktop, catalogue API answers 5xx (Playwright route interception)",
+    "offline": "Desktop, browser network set offline",
+    "deployed_real": "Deployed site with Workers AI and Vectorize; runs in CD after deploy (tests tagged @real)"
   },
   "journeys": [
     {
+      "id": "page_load",
+      "name": "Page Load & Layout",
+      "flow": "01-page-load-layout.md",
+      "scenarios": [
+        {
+          "id": "PAGE-001",
+          "priority": "core",
+          "rule": "C1",
+          "account": "anonymous",
+          "group": "Initial load",
+          "title": "Opening / shows header, search tabs, filter panel, popular books and the Help button",
+          "nodes": [
+            "01:open",
+            "01:load",
+            "01:layout",
+            "01:initial",
+            "01:chatBtn"
+          ]
+        },
+        {
+          "id": "PAGE-002",
+          "priority": "secondary",
+          "rule": "S2",
+          "account": "anonymous",
+          "group": "Initial load",
+          "title": "Keyword & filters tab is selected by default",
+          "nodes": [
+            "01:modeTabs",
+            "01:keyword"
+          ]
+        },
+        {
+          "id": "PAGE-003",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "anonymous",
+          "group": "Initial load",
+          "title": "Clicking the logo resets the page to a clean '/'",
+          "nodes": [
+            "01:header"
+          ]
+        },
+        {
+          "id": "PAGE-004",
+          "priority": "core",
+          "rule": "C5",
+          "account": "api_down",
+          "group": "Initial load",
+          "title": "Facet load failure shows the error banner with Retry; Retry recovers",
+          "nodes": [
+            "01:load",
+            "01:loadErr"
+          ]
+        },
+        {
+          "id": "PAGE-005",
+          "priority": "secondary",
+          "rule": "S5",
+          "account": "anonymous",
+          "group": "URL restore",
+          "title": "Opening with q / filters / sort / page restores that keyword search",
+          "nodes": [
+            "01:restore",
+            "01:keyword"
+          ]
+        },
+        {
+          "id": "PAGE-006",
+          "priority": "secondary",
+          "rule": "S5",
+          "account": "llm_stub",
+          "group": "URL restore",
+          "title": "Opening with mode=nl&q=... runs the natural language search",
+          "nodes": [
+            "01:restore",
+            "01:nl"
+          ]
+        },
+        {
+          "id": "PAGE-007",
+          "priority": "secondary",
+          "rule": "S5",
+          "account": "anonymous",
+          "group": "URL restore",
+          "title": "Opening with book=id opens that book's detail dialog",
+          "nodes": [
+            "01:restore",
+            "01:results"
+          ]
+        },
+        {
+          "id": "PAGE-008",
+          "priority": "secondary",
+          "rule": "S4",
+          "account": "anonymous",
+          "group": "URL restore",
+          "title": "Unknown params and invalid values (page=-1, sort=foo) fall back to defaults",
+          "nodes": [
+            "01:sanitize"
+          ]
+        },
+        {
+          "id": "PAGE-009",
+          "priority": "secondary",
+          "rule": "S3",
+          "account": "anonymous_mobile",
+          "group": "Layout by viewport",
+          "title": "Mobile: 'Filters' button opens the filter drawer; chat opens full screen",
+          "nodes": [
+            "01:viewport",
+            "01:mobile"
+          ]
+        },
+        {
+          "id": "PAGE-010",
+          "priority": "secondary",
+          "rule": "S3",
+          "account": "anonymous",
+          "group": "Layout by viewport",
+          "title": "Desktop: filter panel shown on the left",
+          "nodes": [
+            "01:viewport",
+            "01:desktop"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "keyword_filters",
+      "name": "Keyword & Filter Search",
+      "flow": "02-keyword-filter-search.md",
+      "scenarios": [
+        {
+          "id": "KW-001",
+          "priority": "core",
+          "rule": "C2",
+          "account": "anonymous",
+          "group": "Keyword",
+          "title": "Keyword search by title returns the matching books and updates q in the URL",
+          "nodes": [
+            "02:kw",
+            "02:run"
+          ]
+        },
+        {
+          "id": "KW-002",
+          "priority": "core",
+          "rule": "C2",
+          "account": "anonymous",
+          "group": "Keyword",
+          "title": "Keyword matches author, publisher and description (parameterised)",
+          "nodes": [
+            "02:kw",
+            "02:run"
+          ]
+        },
+        {
+          "id": "KW-003",
+          "priority": "core",
+          "rule": "C2",
+          "account": "anonymous",
+          "group": "Keyword",
+          "title": "ISBN search (with or without hyphens) returns that book first",
+          "nodes": [
+            "02:isbn",
+            "02:exact"
+          ]
+        },
+        {
+          "id": "KW-004",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "anonymous",
+          "group": "Keyword",
+          "title": "Enter and the search icon both run the search; clear (x) resets the keyword",
+          "nodes": [
+            "02:kw",
+            "02:run"
+          ]
+        },
+        {
+          "id": "KW-005",
+          "priority": "secondary",
+          "rule": "S4",
+          "account": "anonymous",
+          "group": "Keyword",
+          "title": "Special characters and very long keywords do not break the search",
+          "nodes": [
+            "02:kw"
+          ]
+        },
+        {
+          "id": "FLT-001",
+          "priority": "core",
+          "rule": "C2",
+          "account": "anonymous",
+          "group": "Filters",
+          "title": "Genre filter: selecting two genres returns books in either genre",
+          "nodes": [
+            "02:panel",
+            "02:fGenre",
+            "02:run"
+          ]
+        },
+        {
+          "id": "FLT-002",
+          "priority": "core",
+          "rule": "C2",
+          "account": "anonymous",
+          "group": "Filters",
+          "title": "Author autocomplete suggests after 2 characters and filters by the chosen author",
+          "nodes": [
+            "02:fAuthor",
+            "02:run"
+          ]
+        },
+        {
+          "id": "FLT-003",
+          "priority": "core",
+          "rule": "C2",
+          "account": "anonymous",
+          "group": "Filters",
+          "title": "Publication year from / to limits results to that range (inclusive)",
+          "nodes": [
+            "02:fYear",
+            "02:yearCheck",
+            "02:run"
+          ]
+        },
+        {
+          "id": "FLT-004",
+          "priority": "secondary",
+          "rule": "S4",
+          "account": "anonymous",
+          "group": "Filters",
+          "title": "Year 'from' greater than 'to' shows an inline error and is not applied",
+          "nodes": [
+            "02:yearCheck",
+            "02:yearErr"
+          ]
+        },
+        {
+          "id": "FLT-005",
+          "priority": "core",
+          "rule": "C2",
+          "account": "anonymous",
+          "group": "Filters",
+          "title": "Language, Format and minimum rating filters each narrow the results",
+          "nodes": [
+            "02:fLang",
+            "02:fFormat",
+            "02:fRating",
+            "02:run"
+          ]
+        },
+        {
+          "id": "FLT-006",
+          "priority": "core",
+          "rule": "C2",
+          "account": "anonymous",
+          "group": "Filters",
+          "title": "'In stock only' hides out-of-stock books",
+          "nodes": [
+            "02:fStock",
+            "02:run"
+          ]
+        },
+        {
+          "id": "FLT-007",
+          "priority": "core",
+          "rule": "C2",
+          "account": "anonymous",
+          "group": "Filters",
+          "title": "Price range slider limits results to the selected price band",
+          "nodes": [
+            "02:fPrice",
+            "02:run"
+          ]
+        },
+        {
+          "id": "FLT-008",
+          "priority": "core",
+          "rule": "C2",
+          "account": "anonymous",
+          "group": "Filters",
+          "title": "Keyword combined with several filters applies all of them (AND)",
+          "nodes": [
+            "02:run",
+            "02:chips"
+          ]
+        },
+        {
+          "id": "FLT-009",
+          "priority": "secondary",
+          "rule": "S2",
+          "account": "anonymous",
+          "group": "Filters",
+          "title": "Facet counts update to reflect the current results",
+          "nodes": [
+            "02:counts"
+          ]
+        },
+        {
+          "id": "CHIP-001",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "anonymous",
+          "group": "Chips & reset",
+          "title": "Each active filter is shown as a chip; removing a chip removes that filter",
+          "nodes": [
+            "02:chips",
+            "02:run"
+          ]
+        },
+        {
+          "id": "CHIP-002",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "anonymous",
+          "group": "Chips & reset",
+          "title": "'Clear all' removes all filters and the keyword",
+          "nodes": [
+            "02:chips",
+            "02:reset"
+          ]
+        },
+        {
+          "id": "EMP-001",
+          "priority": "secondary",
+          "rule": "S2",
+          "account": "anonymous",
+          "group": "Empty results",
+          "title": "No match shows 'No books match' with 'Remove last filter' and 'Ask the librarian'",
+          "nodes": [
+            "02:zero",
+            "02:empty"
+          ]
+        },
+        {
+          "id": "EMP-002",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "anonymous",
+          "group": "Empty results",
+          "title": "'Remove last filter' from the empty state brings back results",
+          "nodes": [
+            "02:empty",
+            "02:run"
+          ]
+        },
+        {
+          "id": "EMP-003",
+          "priority": "secondary",
+          "rule": "S5",
+          "account": "llm_stub",
+          "group": "Empty results",
+          "title": "'Get help' from the empty state opens Help prefilled with a search-tips question",
+          "nodes": [
+            "02:empty",
+            "02:chat",
+            "05:emptyRes",
+            "05:prefill"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "results_detail",
+      "name": "Results & Book Detail",
+      "flow": "03-results-book-detail.md",
+      "scenarios": [
+        {
+          "id": "RES-001",
+          "priority": "core",
+          "rule": "C1",
+          "account": "anonymous",
+          "group": "Results list",
+          "title": "Results show 'N books found' and cards with cover, title, author, year, rating, price, availability",
+          "nodes": [
+            "03:res",
+            "03:count",
+            "03:cards"
+          ]
+        },
+        {
+          "id": "RES-002",
+          "priority": "core",
+          "rule": "C2",
+          "account": "anonymous",
+          "group": "Sort & paging",
+          "title": "Each sort option orders the results correctly (parameterised)",
+          "nodes": [
+            "03:sort",
+            "03:refetch"
+          ]
+        },
+        {
+          "id": "RES-003",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "anonymous",
+          "group": "Sort & paging",
+          "title": "Pagination: 20 per page, Next / Previous / page number, URL page=...",
+          "nodes": [
+            "03:paging",
+            "03:refetch"
+          ]
+        },
+        {
+          "id": "RES-004",
+          "priority": "secondary",
+          "rule": "S4",
+          "account": "anonymous",
+          "group": "Sort & paging",
+          "title": "page beyond the last page shows the last valid page",
+          "nodes": [
+            "03:outOfRange",
+            "03:lastPage"
+          ]
+        },
+        {
+          "id": "RES-005",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "anonymous",
+          "group": "Results list",
+          "title": "Grid / List toggle is remembered after reload",
+          "nodes": [
+            "03:view"
+          ]
+        },
+        {
+          "id": "RES-006",
+          "priority": "secondary",
+          "rule": "S2",
+          "account": "anonymous",
+          "group": "Results list",
+          "title": "Book without a cover shows the placeholder image",
+          "nodes": [
+            "03:noCover"
+          ]
+        },
+        {
+          "id": "DET-001",
+          "priority": "core",
+          "rule": "C1",
+          "account": "anonymous",
+          "group": "Book detail",
+          "title": "Clicking a card opens the detail dialog with full metadata and book=id in the URL",
+          "nodes": [
+            "03:cards",
+            "03:detail",
+            "03:dInfo"
+          ]
+        },
+        {
+          "id": "DET-002",
+          "priority": "secondary",
+          "rule": "S2",
+          "account": "anonymous",
+          "group": "Book detail",
+          "title": "Availability shows 'In stock' per format, or 'Out of stock' with expected date",
+          "nodes": [
+            "03:dStock",
+            "03:inStock",
+            "03:outStock"
+          ]
+        },
+        {
+          "id": "DET-003",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "anonymous",
+          "group": "Book detail",
+          "title": "Similar books carousel opens another book's detail",
+          "nodes": [
+            "03:dSimilar"
+          ]
+        },
+        {
+          "id": "DET-004",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "anonymous",
+          "group": "Book detail",
+          "title": "Clicking the author runs a keyword search for that author",
+          "nodes": [
+            "03:dAuthor"
+          ]
+        },
+        {
+          "id": "DET-005",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "anonymous",
+          "group": "Book detail",
+          "title": "Copy link and Copy ISBN put the right values on the clipboard",
+          "nodes": [
+            "03:dShare",
+            "03:dInfo"
+          ]
+        },
+        {
+          "id": "DET-006",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "keyboard",
+          "group": "Book detail",
+          "title": "Close by X, Esc and backdrop; focus returns to the card and book is removed from the URL",
+          "nodes": [
+            "03:dClose"
+          ]
+        },
+        {
+          "id": "DET-008",
+          "priority": "secondary",
+          "rule": "S5",
+          "account": "anonymous",
+          "group": "Deep links",
+          "title": "Deep link /?book=id opens the dialog; unknown id shows 'Book not found'",
+          "nodes": [
+            "03:deep",
+            "03:found",
+            "03:notFound"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nl_search",
+      "name": "Natural Language Search (AI)",
+      "flow": "04-natural-language-search.md",
+      "_note": "Translation correctness runs against the LLM stub (fixed question -> filter pairs); a nightly set runs the real model and checks the filter is valid and the description mentions each requested condition.",
+      "scenarios": [
+        {
+          "id": "NL-001",
+          "priority": "core",
+          "rule": "C2",
+          "account": "llm_stub",
+          "group": "Translate & search",
+          "title": "Question 'Korean novels after 2015 under $20 with 4+ stars' returns only matching books",
+          "nodes": [
+            "04:box",
+            "04:translating",
+            "04:api",
+            "04:ok",
+            "04:nlResults"
+          ]
+        },
+        {
+          "id": "NL-002",
+          "priority": "core",
+          "rule": "C2",
+          "account": "llm_stub",
+          "group": "Translate & search",
+          "title": "'Interpreted as' shows a description that matches every condition in the question",
+          "nodes": [
+            "04:ok",
+            "04:interpreted"
+          ]
+        },
+        {
+          "id": "NL-003",
+          "priority": "core",
+          "rule": "C2",
+          "account": "llm_stub",
+          "group": "Translate & search",
+          "title": "OR / NOT questions ('fantasy or sci-fi, not audiobooks') are applied correctly",
+          "nodes": [
+            "04:llm",
+            "04:validate",
+            "04:nlResults"
+          ]
+        },
+        {
+          "id": "NL-004",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "llm_stub",
+          "group": "Translate & search",
+          "title": "Example chips fill the question box and run it",
+          "nodes": [
+            "04:examples",
+            "04:box"
+          ]
+        },
+        {
+          "id": "NL-005",
+          "priority": "secondary",
+          "rule": "S2",
+          "account": "llm_stub",
+          "group": "Translate & search",
+          "title": "While translating, input and button are disabled and a spinner shows",
+          "nodes": [
+            "04:translating"
+          ]
+        },
+        {
+          "id": "NL-006",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "llm_stub",
+          "group": "Translate & search",
+          "title": "Filter panel narrows AI results further (combined)",
+          "nodes": [
+            "04:combine"
+          ]
+        },
+        {
+          "id": "NL-007",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "llm_stub",
+          "group": "Translate & search",
+          "title": "'Edit as filters' copies the conditions into the filter panel and switches tab",
+          "nodes": [
+            "04:showFilters",
+            "04:keyword"
+          ]
+        },
+        {
+          "id": "NL-008",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "llm_stub",
+          "group": "Translate & search",
+          "title": "Switching back to the Keyword tab drops the AI filter",
+          "nodes": [
+            "04:resetMode"
+          ]
+        },
+        {
+          "id": "NL-009",
+          "priority": "secondary",
+          "rule": "S5",
+          "account": "llm_stub",
+          "group": "Translate & search",
+          "title": "URL mode=nl&q=... re-runs the question after reload",
+          "nodes": [
+            "04:nlResults"
+          ]
+        },
+        {
+          "id": "NL-010",
+          "priority": "secondary",
+          "rule": "S2",
+          "account": "llm_stub",
+          "group": "Translate & search",
+          "title": "AI search with zero matches shows the empty state with 'Try keyword search'",
+          "nodes": [
+            "04:noMatch",
+            "04:nlEmpty"
+          ]
+        },
+        {
+          "id": "NL-011",
+          "priority": "secondary",
+          "rule": "S4",
+          "account": "llm_stub",
+          "group": "Input limits",
+          "title": "Blank question sends nothing; input stops at 500 characters",
+          "nodes": [
+            "04:empty",
+            "04:ignore",
+            "04:box"
+          ]
+        },
+        {
+          "id": "NL-012",
+          "priority": "secondary",
+          "rule": "S4",
+          "account": "llm_stub",
+          "group": "Input limits",
+          "title": "API rejects a question over 500 characters with 400",
+          "nodes": [
+            "04:tooLong"
+          ]
+        },
+        {
+          "id": "NL-013",
+          "priority": "secondary",
+          "rule": "S4",
+          "account": "llm_stub",
+          "group": "Input limits",
+          "title": "More than 10 questions a minute shows 'Too many questions, please wait N seconds'",
+          "nodes": [
+            "04:rateLimit"
+          ]
+        },
+        {
+          "id": "NLG-001",
+          "priority": "core",
+          "rule": "C4",
+          "account": "llm_stub",
+          "group": "Guard rails",
+          "title": "Generated filter with an unknown field or operator is rejected with 422 and the rephrase message",
+          "nodes": [
+            "04:validate",
+            "04:invalid"
+          ]
+        },
+        {
+          "id": "NLG-002",
+          "priority": "core",
+          "rule": "C4",
+          "account": "llm_stub",
+          "group": "Guard rails",
+          "title": "Filter nested deeper than 4 levels or with more than 15 conditions is rejected",
+          "nodes": [
+            "04:validate",
+            "04:invalid"
+          ]
+        },
+        {
+          "id": "NLG-003",
+          "priority": "core",
+          "rule": "C4",
+          "account": "llm_stub",
+          "group": "Guard rails",
+          "title": "Question trying to inject SQL / instructions produces only an allow-listed filter or a 422",
+          "nodes": [
+            "04:llm",
+            "04:validate"
+          ]
+        },
+        {
+          "id": "NLG-004",
+          "priority": "core",
+          "rule": "C4",
+          "account": "llm_stub",
+          "group": "Guard rails",
+          "title": "A tampered nl_filter in the URL is validated server-side and rejected if invalid",
+          "nodes": [
+            "04:guard",
+            "04:validate"
+          ]
+        },
+        {
+          "id": "NLG-005",
+          "priority": "secondary",
+          "rule": "S4",
+          "account": "llm_stub",
+          "group": "Guard rails",
+          "title": "A search that takes too long shows 'Search took too long, try a narrower question'",
+          "nodes": [
+            "04:guard",
+            "04:slow"
+          ]
+        },
+        {
+          "id": "NLE-001",
+          "priority": "core",
+          "rule": "C5",
+          "account": "llm_down",
+          "group": "LLM failure",
+          "title": "LLM unreachable shows 'The AI search is unavailable. Use keyword search instead.'; keyword search still works",
+          "nodes": [
+            "04:down",
+            "04:keyword"
+          ]
+        },
+        {
+          "id": "NLE-002",
+          "priority": "secondary",
+          "rule": "S4",
+          "account": "llm_down",
+          "group": "LLM failure",
+          "title": "LLM timeout re-enables the input so the user can retry",
+          "nodes": [
+            "04:down",
+            "04:box"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chat_conversation",
+      "name": "Help Assistant - Conversation",
+      "flow": "05-help-conversation.md",
+      "scenarios": [
+        {
+          "id": "CHAT-001",
+          "priority": "core",
+          "rule": "C1",
+          "account": "llm_stub",
+          "group": "Open & send",
+          "title": "Help opens the panel with welcome message, disclaimer, suggested questions and focus in the input",
+          "nodes": [
+            "05:btn",
+            "05:panel",
+            "05:welcome",
+            "05:suggested"
+          ]
+        },
+        {
+          "id": "CHAT-002",
+          "priority": "core",
+          "rule": "C3",
+          "account": "llm_stub",
+          "group": "Open & send",
+          "title": "A usage question shows a short answer with links to the User Guide sections",
+          "nodes": [
+            "05:send",
+            "05:userMsg",
+            "05:retrieve",
+            "05:waiting",
+            "05:answer",
+            "05:sources"
+          ]
+        },
+        {
+          "id": "CHAT-003",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "llm_stub",
+          "group": "Open & send",
+          "title": "Enter sends, Shift+Enter adds a new line, blank input keeps Send disabled",
+          "nodes": [
+            "05:input",
+            "05:newline",
+            "05:sendDisabled"
+          ]
+        },
+        {
+          "id": "CHAT-004",
+          "priority": "secondary",
+          "rule": "S4",
+          "account": "llm_stub",
+          "group": "Open & send",
+          "title": "Input stops at 1000 characters and shows the counter near the limit",
+          "nodes": [
+            "05:input"
+          ]
+        },
+        {
+          "id": "CHAT-005",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "llm_stub",
+          "group": "Open & send",
+          "title": "Suggested question chip sends that question",
+          "nodes": [
+            "05:suggested",
+            "05:send"
+          ]
+        },
+        {
+          "id": "CHAT-006",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "llm_stub",
+          "group": "Open & send",
+          "title": "'Stop generating' cancels the request and marks the answer 'Stopped.'",
+          "nodes": [
+            "05:stop",
+            "05:partial"
+          ]
+        },
+        {
+          "id": "CHAT-007",
+          "priority": "core",
+          "rule": "C3",
+          "account": "llm_stub",
+          "group": "Context",
+          "title": "A follow-up question ('what about on a phone?') is searched together with the previous question",
+          "nodes": [
+            "05:followUp",
+            "05:send"
+          ]
+        },
+        {
+          "id": "CHAT-009",
+          "priority": "secondary",
+          "rule": "S5",
+          "account": "llm_stub",
+          "group": "Sources & recommendations",
+          "title": "Clicking a source link opens that User Guide section",
+          "nodes": [
+            "05:sources",
+            "05:guide"
+          ]
+        },
+        {
+          "id": "CHAT-011",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "llm_stub",
+          "group": "Sources & recommendations",
+          "title": "Copy answer copies the answer text without markdown",
+          "nodes": [
+            "05:copy"
+          ]
+        },
+        {
+          "id": "CHAT-012",
+          "priority": "secondary",
+          "rule": "S6",
+          "account": "llm_stub",
+          "group": "Feedback",
+          "title": "Thumbs up shows 'Thanks for the feedback'; thumbs down offers a comment",
+          "nodes": [
+            "05:feedback",
+            "05:comment",
+            "05:thanks"
+          ]
+        },
+        {
+          "id": "CHAT-013",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "llm_stub",
+          "group": "Session",
+          "title": "Close then reopen keeps the conversation; reload in the same tab restores it",
+          "nodes": [
+            "05:close",
+            "05:persist"
+          ]
+        },
+        {
+          "id": "CHAT-014",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "llm_stub",
+          "group": "Session",
+          "title": "'New conversation' asks to confirm and clears the history",
+          "nodes": [
+            "05:newChat"
+          ]
+        },
+        {
+          "id": "CHE-001",
+          "priority": "core",
+          "rule": "C5",
+          "account": "llm_down",
+          "group": "Errors",
+          "title": "Generation error shows the error with Retry; Retry resends the same question",
+          "nodes": [
+            "05:err"
+          ]
+        },
+        {
+          "id": "CHE-002",
+          "priority": "core",
+          "rule": "C5",
+          "account": "llm_down",
+          "group": "Errors",
+          "title": "No answer within 30s shows the timeout message with Retry",
+          "nodes": [
+            "05:timeout"
+          ]
+        },
+        {
+          "id": "CHE-003",
+          "priority": "secondary",
+          "rule": "S4",
+          "account": "llm_stub",
+          "group": "Errors",
+          "title": "Rate limit (429) shows 'Too many questions, please wait N seconds'",
+          "nodes": [
+            "05:rate"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chat_grounding",
+      "name": "Help Assistant - Grounding & Safety",
+      "flow": "06-help-grounding-safety.md",
+      "_note": "Exact-answer checks use the stub; real-model checks assert properties (citations exist, cited books are in the catalogue, refusal wording).",
+      "scenarios": [
+        {
+          "id": "GRD-001",
+          "priority": "core",
+          "rule": "C3",
+          "account": "llm_stub",
+          "group": "Grounding",
+          "title": "Every source link points to an existing User Guide section and opens it",
+          "nodes": [
+            "06:grounded",
+            "06:cite"
+          ]
+        },
+        {
+          "id": "GRD-002",
+          "priority": "core",
+          "rule": "C3",
+          "account": "llm_stub",
+          "group": "Grounding",
+          "title": "The answer is taken from the linked User Guide section",
+          "nodes": [
+            "06:facts"
+          ]
+        },
+        {
+          "id": "GRD-003",
+          "priority": "core",
+          "rule": "C3",
+          "account": "llm_stub",
+          "group": "Grounding",
+          "title": "A question the User Guide does not cover gets 'I couldn't find that in the User Guide' and no links",
+          "nodes": [
+            "06:relevant",
+            "06:unknown"
+          ]
+        },
+        {
+          "id": "GRD-005",
+          "priority": "secondary",
+          "rule": "S3",
+          "account": "deployed_real",
+          "group": "Grounding",
+          "title": "Korean question gets a Korean answer with User Guide links (real model)",
+          "nodes": [
+            "06:lang",
+            "06:sameLang"
+          ]
+        },
+        {
+          "id": "SAFE-001",
+          "priority": "core",
+          "rule": "C4",
+          "account": "llm_stub",
+          "group": "Safety",
+          "title": "Out-of-scope question (weather, coding, a specific book) gets the fixed answer",
+          "nodes": [
+            "06:scope",
+            "06:outScope"
+          ]
+        },
+        {
+          "id": "SAFE-002",
+          "priority": "core",
+          "rule": "C4",
+          "account": "llm_stub",
+          "group": "Safety",
+          "title": "'Ignore previous instructions' / 'show your system prompt' does not change behaviour or leak the prompt",
+          "nodes": [
+            "06:inject",
+            "06:injectSafe"
+          ]
+        },
+        {
+          "id": "SAFE-004",
+          "priority": "core",
+          "rule": "C4",
+          "account": "llm_stub",
+          "group": "Safety",
+          "title": "Requests for personal data get the fixed answer",
+          "nodes": [
+            "06:pii",
+            "06:piiRefuse"
+          ]
+        },
+        {
+          "id": "SAFE-005",
+          "priority": "core",
+          "rule": "C4",
+          "account": "llm_stub",
+          "group": "Safety",
+          "title": "Abusive / harmful requests get the fixed answer, nothing generated",
+          "nodes": [
+            "06:harmful",
+            "06:modRefuse"
+          ]
+        },
+        {
+          "id": "SAFE-006",
+          "priority": "core",
+          "rule": "C4",
+          "account": "llm_stub",
+          "group": "Safety",
+          "title": "HTML / script in the question or answer is shown as text (no execution); links open in a new tab",
+          "nodes": [
+            "06:html",
+            "06:render"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "common",
+      "name": "Common States & Accessibility",
+      "flow": "07-common-states-accessibility.md",
+      "scenarios": [
+        {
+          "id": "COM-001",
+          "priority": "secondary",
+          "rule": "S2",
+          "account": "anonymous",
+          "group": "Loading & errors",
+          "title": "Skeleton cards while loading, without layout jump",
+          "nodes": [
+            "07:any",
+            "07:loading"
+          ]
+        },
+        {
+          "id": "COM-002",
+          "priority": "core",
+          "rule": "C5",
+          "account": "api_down",
+          "group": "Loading & errors",
+          "title": "Results API 5xx shows 'Could not load books' with Retry; Retry recovers",
+          "nodes": [
+            "07:banner"
+          ]
+        },
+        {
+          "id": "COM-003",
+          "priority": "secondary",
+          "rule": "S4",
+          "account": "offline",
+          "group": "Loading & errors",
+          "title": "Offline shows the notice and disables search until back online",
+          "nodes": [
+            "07:offline"
+          ]
+        },
+        {
+          "id": "COM-004",
+          "priority": "secondary",
+          "rule": "S2",
+          "account": "anonymous",
+          "group": "Loading & errors",
+          "title": "Slow response over 3s shows 'Still loading...'",
+          "nodes": [
+            "07:slowMsg"
+          ]
+        },
+        {
+          "id": "COM-005",
+          "priority": "secondary",
+          "rule": "S3",
+          "account": "anonymous_mobile",
+          "group": "Responsive",
+          "title": "Mobile: filter drawer 'Apply', single-column cards, full-screen chat",
+          "nodes": [
+            "07:mobile",
+            "07:mLayout"
+          ]
+        },
+        {
+          "id": "COM-006",
+          "priority": "secondary",
+          "rule": "S3",
+          "account": "anonymous",
+          "group": "Responsive",
+          "title": "Desktop three-area layout at 1280px",
+          "nodes": [
+            "07:dLayout"
+          ]
+        },
+        {
+          "id": "A11Y-001",
+          "priority": "secondary",
+          "rule": "S3",
+          "account": "keyboard",
+          "group": "Accessibility",
+          "title": "Complete a filter search, open a book and ask the chatbot using only the keyboard",
+          "nodes": [
+            "07:a11y",
+            "07:keys"
+          ]
+        },
+        {
+          "id": "A11Y-002",
+          "priority": "secondary",
+          "rule": "S3",
+          "account": "keyboard",
+          "group": "Accessibility",
+          "title": "Dialog and chat trap focus; Esc closes and focus returns",
+          "nodes": [
+            "07:trap"
+          ]
+        },
+        {
+          "id": "A11Y-003",
+          "priority": "secondary",
+          "rule": "S3",
+          "account": "screen_reader",
+          "group": "Accessibility",
+          "title": "Results count, chat streaming and errors are announced via aria-live",
+          "nodes": [
+            "07:live"
+          ]
+        },
+        {
+          "id": "A11Y-004",
+          "priority": "secondary",
+          "rule": "S3",
+          "account": "screen_reader",
+          "group": "Accessibility",
+          "title": "Inputs, filters, covers and icon buttons have labels / alt text",
+          "nodes": [
+            "07:labels"
+          ]
+        },
+        {
+          "id": "A11Y-005",
+          "priority": "secondary",
+          "rule": "S3",
+          "account": "anonymous",
+          "group": "Accessibility",
+          "title": "axe scan of main page, detail dialog and chat has no serious violations",
+          "nodes": [
+            "07:contrast"
+          ]
+        },
+        {
+          "id": "NAV-001",
+          "priority": "secondary",
+          "rule": "S5",
+          "account": "anonymous",
+          "group": "History",
+          "title": "Back / Forward restores previous search state and dialog",
+          "nodes": [
+            "07:history"
+          ]
+        },
+        {
+          "id": "NAV-002",
+          "priority": "secondary",
+          "rule": "S5",
+          "account": "anonymous",
+          "group": "History",
+          "title": "Reload keeps search state from the URL",
+          "nodes": [
+            "07:reload"
+          ]
+        }
+      ]
+    },
+    {
       "id": "app_shell",
       "name": "App Shell & Navigation",
-      "flow": "01-app-shell.md",
+      "flow": "08-app-shell.md",
       "scenarios": [
-        { "id": "SHELL-001", "priority": "core", "rule": "C1", "account": "anonymous", "group": "Layout", "title": "Opening / shows the header, the left menu with every entry and the Help button", "nodes": ["01:shell", "01:menu", "01:permanent"] },
-        { "id": "SHELL-002", "priority": "secondary", "rule": "S1", "account": "anonymous", "group": "Layout", "title": "Menu entries open Home, User Guide and Logs & Monitoring; Coverage links to /coverage/", "nodes": ["01:home", "01:guide", "01:logs", "01:coverage"] },
-        { "id": "SHELL-003", "priority": "secondary", "rule": "S3", "account": "anonymous_mobile", "group": "Layout", "title": "Mobile: the menu button opens the drawer", "nodes": ["01:drawer"] },
-        { "id": "SHELL-004", "priority": "secondary", "rule": "S5", "account": "anonymous", "group": "URL state", "title": "Unknown path shows 'Page not found' with Go to Home", "nodes": ["01:notFound"] }
+        {
+          "id": "SHELL-001",
+          "priority": "core",
+          "rule": "C1",
+          "account": "anonymous",
+          "group": "Layout",
+          "title": "Every page shows the BookFinder header, the left menu with every entry and the Help button",
+          "nodes": [
+            "08:shell",
+            "08:menu",
+            "08:permanent"
+          ]
+        },
+        {
+          "id": "SHELL-002",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "anonymous",
+          "group": "Layout",
+          "title": "Menu entries open Book Search, User Guide and Logs & Monitoring; Coverage links to /coverage/",
+          "nodes": [
+            "08:home",
+            "08:guide",
+            "08:logs",
+            "08:coverage"
+          ]
+        },
+        {
+          "id": "SHELL-003",
+          "priority": "secondary",
+          "rule": "S3",
+          "account": "anonymous_mobile",
+          "group": "Layout",
+          "title": "Mobile: the menu button opens the drawer",
+          "nodes": [
+            "08:drawer"
+          ]
+        },
+        {
+          "id": "SHELL-004",
+          "priority": "secondary",
+          "rule": "S5",
+          "account": "anonymous",
+          "group": "URL state",
+          "title": "Unknown path shows 'Page not found' with Go to Home",
+          "nodes": [
+            "08:notFound"
+          ]
+        }
       ]
     },
     {
       "id": "user_guide",
       "name": "User Guide",
-      "flow": "02-user-guide.md",
+      "flow": "09-user-guide.md",
       "scenarios": [
-        { "id": "GUIDE-001", "priority": "core", "rule": "C1", "account": "anonymous", "group": "Reading", "title": "User Guide shows the page list and the first page; clicking a page opens it", "nodes": ["02:list", "02:page"] },
-        { "id": "GUIDE-002", "priority": "secondary", "rule": "S5", "account": "anonymous", "group": "URL state", "title": "Deep link /guide/page#section scrolls to that heading", "nodes": ["02:deep", "02:anchor"] },
-        { "id": "GUIDE-003", "priority": "secondary", "rule": "S4", "account": "anonymous", "group": "URL state", "title": "Unknown page shows 'This User Guide page does not exist.'", "nodes": ["02:missing"] }
-      ]
-    },
-    {
-      "id": "help_assistant",
-      "name": "Help Assistant (RAG)",
-      "flow": "03-help-assistant.md",
-      "scenarios": [
-        { "id": "HELP-001", "priority": "core", "rule": "C1", "account": "anonymous", "group": "Conversation", "title": "Help opens the chat panel with the disclaimer and focus in the input", "nodes": ["03:panel"] },
-        { "id": "HELP-002", "priority": "core", "rule": "C3", "account": "anonymous", "group": "Conversation", "title": "A usage question gets a short summary and links to the User Guide sections", "nodes": ["03:send", "03:retrieve", "03:summary", "03:links"] },
-        { "id": "HELP-003", "priority": "core", "rule": "C3", "account": "anonymous", "group": "Conversation", "title": "Clicking a source link opens that User Guide section", "nodes": ["03:guide"] },
-        { "id": "HELP-004", "priority": "core", "rule": "C4", "account": "anonymous", "group": "Grounding", "title": "A question the guide does not cover gets 'I couldn't find that in the User Guide' and no links", "nodes": ["03:noContext"] },
-        { "id": "HELP-005", "priority": "core", "rule": "C5", "account": "llm_down", "group": "Failure", "title": "AI unavailable shows the error with Retry; Retry resends the question", "nodes": ["03:error"] },
-        { "id": "HELP-006", "priority": "secondary", "rule": "S4", "account": "anonymous", "group": "Input", "title": "Enter sends, Shift+Enter adds a new line, blank input keeps Send disabled", "nodes": ["03:input", "03:newline", "03:disabled"] },
-        { "id": "HELP-007", "priority": "secondary", "rule": "S5", "account": "anonymous", "group": "Conversation", "title": "Close then reopen or reload keeps the conversation; New conversation clears it", "nodes": ["03:close", "03:clear"] }
+        {
+          "id": "GUIDE-001",
+          "priority": "core",
+          "rule": "C1",
+          "account": "anonymous",
+          "group": "Reading",
+          "title": "User Guide shows the page list and the first page; clicking a page opens it",
+          "nodes": [
+            "09:list",
+            "09:page"
+          ]
+        },
+        {
+          "id": "GUIDE-002",
+          "priority": "secondary",
+          "rule": "S5",
+          "account": "anonymous",
+          "group": "URL state",
+          "title": "Deep link /guide/page#section scrolls to that heading",
+          "nodes": [
+            "09:deep",
+            "09:anchor"
+          ]
+        },
+        {
+          "id": "GUIDE-003",
+          "priority": "secondary",
+          "rule": "S4",
+          "account": "anonymous",
+          "group": "URL state",
+          "title": "Unknown page shows 'This User Guide page does not exist.'",
+          "nodes": [
+            "09:missing"
+          ]
+        }
       ]
     },
     {
       "id": "logs_monitoring",
       "name": "Logs & Monitoring",
-      "flow": "04-logs-monitoring.md",
+      "flow": "10-logs-monitoring.md",
       "scenarios": [
-        { "id": "LOGS-001", "priority": "core", "rule": "C1", "account": "anonymous", "group": "Dashboard", "title": "Dashboard shows request, error rate, p95 and client error cards and the hourly chart", "nodes": ["04:dashboard", "04:chart"] },
-        { "id": "LOGS-002", "priority": "core", "rule": "C2", "account": "anonymous", "group": "Plain language search", "title": "A plain language question shows 'Interpreted as' and only matching log rows", "nodes": ["04:nlTab", "04:question", "04:translate", "04:interpreted", "04:table"] },
-        { "id": "LOGS-003", "priority": "core", "rule": "C4", "account": "anonymous", "group": "Plain language search", "title": "A question that is not about logs asks to rephrase", "nodes": ["04:rephrase"] },
-        { "id": "LOGS-004", "priority": "core", "rule": "C5", "account": "llm_down", "group": "Plain language search", "title": "LLM unavailable shows 'The AI search is unavailable.'", "nodes": ["04:unavailable"] },
-        { "id": "LOGS-005", "priority": "secondary", "rule": "S1", "account": "anonymous", "group": "Keyword search", "title": "Keyword and level filter narrow the table", "nodes": ["04:kwTab", "04:keyword"] },
-        { "id": "LOGS-006", "priority": "secondary", "rule": "S1", "account": "anonymous", "group": "Dashboard", "title": "Changing the time range reloads the dashboard", "nodes": ["04:range"] },
-        { "id": "LOGS-007", "priority": "secondary", "rule": "S2", "account": "api_down", "group": "Dashboard", "title": "Dashboard API error shows the message with Retry", "nodes": ["04:dashError"] },
-        { "id": "LOGS-008", "priority": "secondary", "rule": "S2", "account": "anonymous", "group": "Keyword search", "title": "No matching logs shows 'No log entries match.'", "nodes": ["04:empty"] }
+        {
+          "id": "LOGS-001",
+          "priority": "core",
+          "rule": "C1",
+          "account": "anonymous",
+          "group": "Dashboard",
+          "title": "Dashboard shows request, error rate, p95 and client error cards and the hourly chart",
+          "nodes": [
+            "10:dashboard",
+            "10:chart"
+          ]
+        },
+        {
+          "id": "LOGS-002",
+          "priority": "core",
+          "rule": "C2",
+          "account": "anonymous",
+          "group": "Plain language search",
+          "title": "A plain language question shows 'Interpreted as' and only matching log rows",
+          "nodes": [
+            "10:nlTab",
+            "10:question",
+            "10:translate",
+            "10:interpreted",
+            "10:table"
+          ]
+        },
+        {
+          "id": "LOGS-003",
+          "priority": "core",
+          "rule": "C4",
+          "account": "anonymous",
+          "group": "Plain language search",
+          "title": "A question that is not about logs asks to rephrase",
+          "nodes": [
+            "10:rephrase"
+          ]
+        },
+        {
+          "id": "LOGS-004",
+          "priority": "core",
+          "rule": "C5",
+          "account": "llm_down",
+          "group": "Plain language search",
+          "title": "LLM unavailable shows 'The AI search is unavailable.'",
+          "nodes": [
+            "10:unavailable"
+          ]
+        },
+        {
+          "id": "LOGS-005",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "anonymous",
+          "group": "Keyword search",
+          "title": "Keyword and level filter narrow the table",
+          "nodes": [
+            "10:kwTab",
+            "10:keyword"
+          ]
+        },
+        {
+          "id": "LOGS-006",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "anonymous",
+          "group": "Dashboard",
+          "title": "Changing the time range reloads the dashboard",
+          "nodes": [
+            "10:range"
+          ]
+        },
+        {
+          "id": "LOGS-007",
+          "priority": "secondary",
+          "rule": "S2",
+          "account": "api_down",
+          "group": "Dashboard",
+          "title": "Dashboard API error shows the message with Retry",
+          "nodes": [
+            "10:dashError"
+          ]
+        },
+        {
+          "id": "LOGS-008",
+          "priority": "secondary",
+          "rule": "S2",
+          "account": "anonymous",
+          "group": "Keyword search",
+          "title": "No matching logs shows 'No log entries match.'",
+          "nodes": [
+            "10:empty"
+          ]
+        }
       ]
     }
   ]

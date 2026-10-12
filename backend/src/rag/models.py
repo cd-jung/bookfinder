@@ -23,3 +23,13 @@ class GuideChunk(models.Model):
     @property
     def url(self):
         return f"/guide/{self.page}" + (f"#{self.anchor}" if self.anchor else "")
+
+
+class AnswerFeedback(models.Model):
+    """Thumbs up / down on a Help answer (no user identity is stored)."""
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    question = models.CharField(max_length=1000)
+    answer = models.TextField()
+    helpful = models.BooleanField()
+    comment = models.CharField(max_length=1000, blank=True, default="")

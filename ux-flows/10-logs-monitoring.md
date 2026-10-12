@@ -1,4 +1,4 @@
-# 4. Logs & Monitoring
+# 10. Logs & Monitoring
 
 Every API request is logged to the `RequestLog` table (and Cloudflare Workers Logs). The page shows a
 dashboard and searches the table in plain language: the LLM turns the question into a JSON filter,
@@ -30,5 +30,5 @@ flowchart TD
   class dashError,rephrase,unavailable,empty hidden
   class translate internal
 
-  %% guide 03-logs-and-monitoring.md
+  %% guide 06-logs-and-monitoring.md
 ```

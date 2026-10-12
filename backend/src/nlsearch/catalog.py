@@ -36,6 +36,8 @@ class Field:
     path: ORM lookup path relative to the model (never shown to the LLM)
     exists_in: optional callable returning a related queryset; the condition then becomes an
                EXISTS subquery on that queryset joined by `exists_ref` (avoids duplicate rows)
+    tokens: the column holds several values as "|a|b|" text; `eq` / `in` match whole tokens
+            (the D1-friendly alternative to a join table)
     choices: enum values; a dict maps the catalogue value to the stored value
     """
 
@@ -47,6 +49,8 @@ class Field:
     operators: set | None = None
     exists_in: object = None
     exists_ref: str = ""
+    tokens: bool = False
+    describe: object = None  # optional (op, value) -> text for "Interpreted as"
 
     def allowed_operators(self):
         return self.operators or OPERATORS[self.type]

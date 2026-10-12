@@ -75,6 +75,12 @@ class _Compiler:
         if op not in spec.allowed_operators():
             raise FilterValidationError(f"Operator '{op}' is not allowed for field '{name}'")
         value = coerce(spec, op, node.get("value"), name)
+        if spec.tokens and op in ("eq", "in"):
+            q = None
+            for item in value if op == "in" else [value]:
+                token_q = Q(**{f"{spec.path}__icontains": f"|{item}|"})
+                q = token_q if q is None else q | token_q
+            return q
         lookup = "exact" if op == "eq" else op
         condition = {f"{spec.path}__{lookup}": value}
         if spec.exists_in is not None:
@@ -177,6 +183,8 @@ def describe_filter(catalog, node):
         spec = catalog.fields[node["field"]]
         label = spec.label or node["field"]
         value = node.get("value")
+        if spec.describe:
+            return spec.describe(node["op"], value)
         if node["op"] == "isnull":
             return f"{label} is {'empty' if value else 'not empty'}"
         if isinstance(value, list):

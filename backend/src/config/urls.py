@@ -6,4 +6,5 @@ urlpatterns = [
     path("api/health", core_views.health),
     path("api/logs/", include("logs.urls")),
     path("api/rag/", include("rag.urls")),
+    path("api/", include("books.urls")),
 ]

@@ -1,0 +1,32 @@
+# 8. App Shell & Navigation
+
+Every page shares the header (BookFinder; clicking it opens a clean search), the left menu and the
+floating Help button.
+
+```mermaid
+flowchart TD
+  open(["Open any URL"]) --> shell["Header 'BookFinder',<br/>left menu, Help button"]
+  shell --> viewport{"Viewport"}
+  viewport -->|"desktop"| permanent["Menu always visible on the left"]
+  viewport -->|"mobile"| drawer["Menu button opens a drawer"]
+  shell --> menu["Menu: Book Search, User Guide,<br/>Logs & Monitoring, Coverage"]
+  menu -->|"Book Search"| home[["Book search<br/>(scenarios 1-4)"]]
+  menu -->|"User Guide"| guide[["User Guide<br/>(scenario 9)"]]
+  menu -->|"Logs & Monitoring"| logs[["Logs & Monitoring<br/>(scenario 10)"]]
+  menu -->|"Coverage"| coverage["Static coverage report /coverage/"]
+  shell -->|"Help"| help[["Help assistant<br/>(scenario 5)"]]
+  open -->|"unknown path"| notFound["'Page not found' + Go to Home"]
+
+  classDef screen fill:#e8f0fe,stroke:#2f5d9e
+  classDef hidden fill:#fdecea,stroke:#c62828,stroke-dasharray:4 3,color:#b71c1c
+  classDef link fill:#e6f4ea,stroke:#2e7d32
+  class shell,permanent,drawer,menu,coverage screen
+  class notFound hidden
+  class home,guide,logs,help link
+
+  %% link home 01-page-load-layout.md
+  %% link guide 09-user-guide.md
+  %% link logs 10-logs-monitoring.md
+  %% link help 05-help-conversation.md
+  %% guide 01-getting-started.md
+```

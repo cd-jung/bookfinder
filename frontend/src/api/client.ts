@@ -24,7 +24,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${API_BASE}${path}`, init);
-  } catch {
+  } catch (error) {
+    if (init?.signal?.aborted) throw error; // cancelled by the caller (Stop / timeout)
     throw new ApiError(0, { detail: 'The server could not be reached. Check your connection and try again.' });
   }
   const body = await response.json().catch(() => null);
@@ -41,10 +42,11 @@ export function getJson<T>(path: string, params: Record<string, string | number 
   return request<T>(`${path}${suffix}`);
 }
 
-export function postJson<T>(path: string, body: unknown): Promise<T> {
+export function postJson<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   return request<T>(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    signal,
   });
 }

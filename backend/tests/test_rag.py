@@ -54,7 +54,7 @@ def _index():
 def test_index_guide_loads_every_page():
     _index()
     pages = set(GuideChunk.objects.values_list("page", flat=True))
-    assert {"01-getting-started", "02-help-assistant", "03-logs-and-monitoring", "04-test-coverage"} <= pages
+    assert {"01-getting-started", "05-help-assistant", "06-logs-and-monitoring", "07-test-coverage"} <= pages
 
 
 def test_answer_summarises_and_links_to_the_guide_section():
@@ -62,7 +62,7 @@ def test_answer_summarises_and_links_to_the_guide_section():
     result = service.answer("How do I search logs in plain language?")
     assert result["has_sufficient_context"] is True
     assert result["answer"]
-    assert result["sources"][0]["url"].startswith("/guide/03-logs-and-monitoring#")
+    assert result["sources"][0]["url"].startswith("/guide/06-logs-and-monitoring#")
 
 
 def test_out_of_scope_question_gets_fixed_answer_without_llm(monkeypatch):
@@ -75,7 +75,7 @@ def test_out_of_scope_question_gets_fixed_answer_without_llm(monkeypatch):
 def test_real_mode_uses_vector_search_and_cleans_the_answer(settings, monkeypatch):
     _index()
     settings.LLM_MODE = "real"
-    chunk = GuideChunk.objects.filter(page="02-help-assistant").first()
+    chunk = GuideChunk.objects.filter(page="05-help-assistant").first()
     monkeypatch.setattr(llm, "embed", lambda texts: [[0.1] * 3])
     monkeypatch.setattr(
         llm,
@@ -113,3 +113,35 @@ def test_api_contract(client, settings):
     settings.LLM_MODE = "down"
     down = client.post("/api/rag/answers", {"question": "help"}, content_type="application/json")
     assert down.status_code == 503 and down.json()["code"] == "llm_unavailable"
+
+
+def test_follow_up_question_uses_the_previous_question():
+    _index()
+    alone = service.answer("What about mobile?")
+    follow_up = service.answer("What about mobile?", history=["How do I search logs in plain language?"])
+    assert alone["has_sufficient_context"] is False
+    assert follow_up["sources"][0]["url"].startswith("/guide/06-logs-and-monitoring")
+
+
+def test_feedback_is_stored(client):
+    from rag.models import AnswerFeedback
+
+    ok = client.post(
+        "/api/rag/feedback",
+        {"question": "q", "answer": "a", "helpful": False, "comment": "too short"},
+        content_type="application/json",
+    )
+    assert ok.status_code == 201 and AnswerFeedback.objects.get().comment == "too short"
+    assert client.post("/api/rag/feedback", {"question": "q"}, content_type="application/json").status_code == 400
+    assert client.post("/api/rag/feedback", "{x", content_type="application/json").status_code == 400
+
+
+def test_answers_are_rate_limited(client):
+    _index()
+    codes = [
+        client.post(
+            "/api/rag/answers", {"question": "How do I ask a question?"}, content_type="application/json"
+        ).status_code
+        for _ in range(11)
+    ]
+    assert codes[-1] == 429 and codes[:10] == [200] * 10

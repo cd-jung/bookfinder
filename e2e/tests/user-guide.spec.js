@@ -15,8 +15,8 @@ test.describe('User Guide', () => {
 
   test('[GUIDE-002] deep link scrolls to the section heading', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 500 });
-    await page.goto('/guide/03-logs-and-monitoring#keyword-search');
-    await expect(page.locator('#keyword-search')).toBeInViewport();
+    await page.goto('/guide/02-searching-books#removing-filters');
+    await expect(page.locator('#removing-filters')).toBeInViewport();
   });
 
   test('[GUIDE-003] unknown page shows a warning', async ({ page }) => {

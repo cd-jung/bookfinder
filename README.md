@@ -7,6 +7,31 @@ unit + E2E tests driven by UX flows, a coverage page, and CI/CD that deploys eve
 
 Korean version: [README.ko.md](README.ko.md). Working method for agents and developers: [AGENTS.md](AGENTS.md).
 
+## BookFinder (this project)
+
+Built from this template on 2026-10-12, following `poc_samples.zip` (UX flows, E2E catalog, NL search guide, RAG PoC).
+
+| | |
+|---|---|
+| App | https://bookfinder.kookastudios.workers.dev |
+| API | https://bookfinder-api.kookastudios.workers.dev/api/health |
+| Coverage | https://bookfinder.kookastudios.workers.dev/coverage/ |
+| Data | 10,000 generated books (`backend/src/books/seed.py`, deterministic; a few real titles as anchors, all prices/stock fictional) |
+| Tests | 114 E2E scenarios (43 core, 100% covered), backend + frontend unit tests |
+
+Project decisions on top of the template:
+
+| Topic | Decision | Why |
+|---|---|---|
+| Chatbot | The spec's "Ask the librarian" became the **Help** assistant: RAG over the User Guide only, short answer + links | User decision: the chatbot explains how to use the service; book data stays out of Vectorize |
+| Removed scenarios | `DET-007` (ask about this book), `CHAT-008` (book context chip), `CHAT-010` (recommended books), `GRD-004` (stale prices), `SAFE-003` (instructions in book descriptions) | They only make sense for a catalogue chatbot |
+| Changed scenarios | `CHAT-002` no token streaming (answer appears whole; `CHAT-006` Stop cancels the request), `CHAT-007` follow-up = previous question added to retrieval, `GRD-005` Korean answers checked on the deployed site (`@real`) | Python Workers + Workers AI answer in one response; the stub cannot translate |
+| Data model | One wide `Book` table; authors / genres / formats as `\|a\|b\|` token text instead of join tables | D1 free plan: 100k rows written/day (seeding uses about 51k) |
+| Read budget | Each search reads up to ~20k D1 rows (one pass for total + facet counts, one for the page) | About 250 searches/day on the 5M rows/day free allowance; enough for a demo |
+| NL guard rails | No Postgres read-only transaction / statement timeout on D1; queries are ORM `filter()` only, the filter is validated twice, and a slow response shows "Search took too long" | D1 has no `SET LOCAL` |
+| Rate limits | 10 questions/minute per client on `/api/nl-search/translate` and `/api/rag/answers` (429 with Retry-After), counted in `RequestLog` | Shared across Worker isolates without another service; off in local E2E (`RATE_LIMITS=0`) |
+| Seeding | CD step `scripts/seed_d1.sh` loads the books once, only while `books_book` is empty | Avoids repeated writes |
+
 ---
 
 ## 1. Start a new project (about 5 minutes)

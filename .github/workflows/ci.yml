@@ -119,6 +119,11 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ steps.cfg.outputs.account }}
         run: cd backend && npx wrangler d1 migrations apply DB --remote
 
+      - name: Seed D1 once (only while the seed table is empty)
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.cfg.outputs.account }}
+        run: cd backend && bash scripts/seed_d1.sh
+
       - name: Deploy API Worker (Django on Python Workers)
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ steps.cfg.outputs.account }}
@@ -150,3 +155,8 @@ jobs:
           curl -fsS -o /dev/null "$APP/logs"
           curl -fsS -o /dev/null "$APP/coverage/"
           echo "Deployed: $APP  API: $API"
+
+      - name: Real-model E2E checks on the deployed site (@real)
+        run: |
+          cd e2e && npm ci && npx playwright install --with-deps chromium
+          DEPLOYED_URL="https://${{ steps.cfg.outputs.frontend }}.${{ steps.cfg.outputs.subdomain }}.workers.dev" npx playwright test

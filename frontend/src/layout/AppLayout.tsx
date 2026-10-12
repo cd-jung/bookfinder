@@ -6,6 +6,7 @@ import {
   Drawer,
   IconButton,
   List,
+  ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
@@ -18,6 +19,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import { APP_NAME } from '../config';
 import { NAV_ITEMS } from './navItems';
 import HelpChat from '../chat/HelpChat';
+import { ChatProvider } from '../chat/ChatContext';
 
 const DRAWER_WIDTH = 240;
 
@@ -38,8 +40,8 @@ export default function AppLayout() {
             ? { component: 'a' as const, href: item.to }
             : { component: RouterLink, to: item.to };
           return (
+            <ListItem key={item.to} disablePadding>
             <ListItemButton
-              key={item.to}
               {...linkProps}
               selected={!item.external && isActive(item.to)}
               aria-current={!item.external && isActive(item.to) ? 'page' : undefined}
@@ -50,6 +52,7 @@ export default function AppLayout() {
               </ListItemIcon>
               <ListItemText primary={item.label} />
             </ListItemButton>
+            </ListItem>
           );
         })}
       </List>
@@ -57,6 +60,7 @@ export default function AppLayout() {
   );
 
   return (
+    <ChatProvider>
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
       <AppBar position="fixed" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
         <Toolbar>
@@ -85,5 +89,6 @@ export default function AppLayout() {
       </Box>
       <HelpChat />
     </Box>
+    </ChatProvider>
   );
 }

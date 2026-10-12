@@ -1,4 +1,4 @@
-# 2. User Guide
+# 9. User Guide
 
 The User Guide pages are the Markdown files in `docs/user-guide/`. The same files are indexed for
 the Help assistant, so a chatbot source link opens the exact section here.

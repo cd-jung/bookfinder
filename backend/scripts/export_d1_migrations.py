@@ -28,7 +28,7 @@ from django.db import connection  # noqa: E402
 from django.db.migrations.loader import MigrationLoader  # noqa: E402
 
 OUT = ROOT / "d1_migrations"
-LOCAL_APPS = {"core", "logs", "rag"} | {p.parent.name for p in (ROOT / "src").glob("*/migrations/__init__.py")}
+LOCAL_APPS = {"core", "logs", "rag"} | {p.parent.parent.name for p in (ROOT / "src").glob("*/migrations/__init__.py")}
 
 
 def ordered_migrations():

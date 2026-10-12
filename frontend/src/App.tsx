@@ -1,6 +1,6 @@
 import { Route, Routes } from 'react-router-dom';
 import AppLayout from './layout/AppLayout';
-import HomePage from './pages/HomePage';
+import SearchPage from './books/SearchPage';
 import GuidePage from './guide/GuidePage';
 import LogsPage from './logs/LogsPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -10,7 +10,7 @@ export default function App() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        <Route index element={<HomePage />} />
+        <Route index element={<SearchPage />} />
         <Route path="guide" element={<GuidePage />} />
         <Route path="guide/:page" element={<GuidePage />} />
         <Route path="logs" element={<LogsPage />} />

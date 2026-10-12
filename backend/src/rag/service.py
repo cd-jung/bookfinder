@@ -15,7 +15,7 @@ from rag.models import GuideChunk
 MAX_QUESTION_LENGTH = 1000
 NO_CONTEXT_ANSWER = "I couldn't find that in the User Guide. Try the User Guide menu or rephrase your question."
 STOP_WORDS = set(
-    "a an and are can do does for from how i in is it me my of on or the to what when where which who why with you".split()
+    "a about also an and any are be but can could do does for from how i if in is it me my of on or so some that the this to was what when where which who why will with would you your".split()
 )
 
 PROMPT = """You are the {app} help assistant. You explain how to use {app}.
@@ -38,8 +38,15 @@ class QuestionError(ValueError):
     pass
 
 
+def _stem(word):
+    for suffix in ("ing", "es", "s"):
+        if word.endswith(suffix) and len(word) - len(suffix) >= 3:
+            return word[: -len(suffix)]
+    return word
+
+
 def _words(text):
-    return {w for w in re.findall(r"\w+", text.lower()) if len(w) > 1 and w not in STOP_WORDS}
+    return {_stem(w) for w in re.findall(r"\w+", text.lower()) if len(w) > 1 and w not in STOP_WORDS}
 
 
 def retrieve(question):
@@ -53,7 +60,7 @@ def retrieve(question):
     return [(chunks[i], round(scores[i], 4)) for i in ids if i in chunks]
 
 
-def _lexical(question, threshold=0.34):
+def _lexical(question, threshold=0.5):
     """Deterministic stand-in for vector search (LLM_MODE=stub): share of question words found."""
     asked = _words(question)
     if not asked:
@@ -61,11 +68,13 @@ def _lexical(question, threshold=0.34):
     scored = []
     for chunk in GuideChunk.objects.all():
         found = asked & _words(f"{chunk.section} {chunk.content}")
-        score = round(len(found) / len(asked), 4)
-        if score >= threshold:
-            scored.append((chunk, score))
-    scored.sort(key=lambda pair: (-pair[1], pair[0].id))
-    return scored[: settings.RAG_TOP_K]
+        in_heading = asked & _words(chunk.section)
+        share = len(found) / len(asked)
+        if share >= threshold:
+            # Words in the section heading break ties; the reported similarity stays the plain share.
+            scored.append((chunk, round(share, 4), share + 0.25 * len(in_heading) / len(asked)))
+    scored.sort(key=lambda item: (-item[2], item[0].id))
+    return [(chunk, share) for chunk, share, _ in scored[: settings.RAG_TOP_K]]
 
 
 def _plain(markdown):
@@ -85,23 +94,38 @@ def _clean(text):
     return "\n".join(line.rstrip() for line in text.strip().splitlines())
 
 
-def answer(question):
+def _merge(*result_lists):
+    best = {}
+    for results in result_lists:  # each list is already ranked; keep that order for equal scores
+        for chunk, score in results:
+            if chunk.id not in best or score > best[chunk.id][1]:
+                best[chunk.id] = (chunk, score)
+    return sorted(best.values(), key=lambda pair: -pair[1])[: settings.RAG_TOP_K]
+
+
+def answer(question, history=None):
+    """history: earlier user questions of this conversation, oldest first (follow-up questions)."""
     if not isinstance(question, str) or not question.strip():
         raise QuestionError("question is required")
     if len(question) > MAX_QUESTION_LENGTH:
         raise QuestionError(f"question is too long (max {MAX_QUESTION_LENGTH} characters)")
     llm.ensure_available()
     question = question.strip()
+    previous = [h.strip()[:MAX_QUESTION_LENGTH] for h in (history or []) if isinstance(h, str) and h.strip()][-2:]
     results = retrieve(question)
+    if previous:
+        # A follow-up ("and on mobile?") is searched together with the question before it.
+        results = _merge(results, retrieve(f"{previous[-1]} {question}"))
     if not results:
         return {"answer": NO_CONTEXT_ANSWER, "sources": [], "has_sufficient_context": False}
     if llm.mode() == "stub":
         text = _stub_answer(results)
     else:
         contexts = "\n\n---\n\n".join(f"Section: {c.section}\n{c.content}" for c, _ in results)
+        asked = question if not previous else "Earlier questions: " + " / ".join(previous) + "\nQuestion: " + question
         text = _clean(
             llm.generate(
-                PROMPT.format(app=settings.APP_NAME, no_context=NO_CONTEXT_ANSWER, contexts=contexts, question=question)
+                PROMPT.format(app=settings.APP_NAME, no_context=NO_CONTEXT_ANSWER, contexts=contexts, question=asked)
             )
         )
     sources, seen = [], set()

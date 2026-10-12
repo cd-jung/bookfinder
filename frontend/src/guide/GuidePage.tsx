@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { Link as RouterLink, useLocation, useParams } from 'react-router-dom';
 import Markdown from 'react-markdown';
-import { Alert, Box, Link, List, ListItemButton, ListItemText, Paper, Stack, Typography } from '@mui/material';
+import { Alert, Box, Link, List, ListItem, ListItemButton, ListItemText, Paper, Stack, Typography } from '@mui/material';
 import { GUIDE_PAGES } from './pages';
 import { slugify } from './slug';
 
@@ -39,8 +39,8 @@ export default function GuidePage() {
       <Paper variant="outlined" component="nav" aria-label="User Guide pages" sx={{ width: { xs: '100%', md: 240 }, flexShrink: 0 }}>
         <List dense>
           {GUIDE_PAGES.map((p) => (
+            <ListItem key={p.slug} disablePadding>
             <ListItemButton
-              key={p.slug}
               component={RouterLink}
               to={`/guide/${p.slug}`}
               selected={p.slug === current?.slug}
@@ -48,6 +48,7 @@ export default function GuidePage() {
             >
               <ListItemText primary={p.title} />
             </ListItemButton>
+            </ListItem>
           ))}
         </List>
       </Paper>

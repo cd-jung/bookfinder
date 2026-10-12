@@ -4,9 +4,9 @@ const { test, expect } = require('@playwright/test');
 test.describe('App shell & navigation', () => {
   test('[SHELL-001] opening / shows the header, the menu and the Help button', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('banner')).toBeVisible();
+    await expect(page.getByRole('banner')).toContainText('BookFinder');
     const menu = page.getByRole('navigation', { name: 'Main menu' });
-    for (const label of ['Home', 'User Guide', 'Logs & Monitoring', 'Coverage']) {
+    for (const label of ['Book Search', 'User Guide', 'Logs & Monitoring', 'Coverage']) {
       await expect(menu.getByRole('link', { name: label })).toBeVisible();
     }
     await expect(page.getByRole('button', { name: 'Help' })).toBeVisible();
@@ -19,7 +19,7 @@ test.describe('App shell & navigation', () => {
     await expect(page).toHaveURL(/\/guide$/);
     await menu.getByRole('link', { name: 'Logs & Monitoring' }).click();
     await expect(page.getByRole('heading', { name: 'Logs & Monitoring' })).toBeVisible();
-    await menu.getByRole('link', { name: 'Home' }).click();
+    await menu.getByRole('link', { name: 'Book Search' }).click();
     await expect(page).toHaveURL(/\/$/);
     await expect(menu.getByRole('link', { name: 'Coverage' })).toHaveAttribute('href', '/coverage/');
   });

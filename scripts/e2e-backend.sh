@@ -2,7 +2,7 @@
 # Start the local backend for E2E: fresh SQLite DB, migrations, User Guide index, deterministic LLM stub.
 set -euo pipefail
 cd "$(dirname "$0")/../backend"
-export DJANGO_ENV=local LLM_MODE=stub LOCAL_DB_PATH="${LOCAL_DB_PATH:-$PWD/e2e.sqlite3}"
+export DJANGO_ENV=local LLM_MODE=stub RATE_LIMITS=0 LOCAL_DB_PATH="${LOCAL_DB_PATH:-$PWD/e2e.sqlite3}"
 rm -f "$LOCAL_DB_PATH"
 uv run python src/manage.py migrate --verbosity 0
 uv run python src/manage.py index_guide

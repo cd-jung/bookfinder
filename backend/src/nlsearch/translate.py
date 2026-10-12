@@ -77,7 +77,8 @@ def question_to_filter(catalog, question):
             if normalise(example["question"]) == key:
                 if "expected_error" in example:
                     return {"error": example["expected_error"]}
-                return example["expected_filter"]
+                # stub_filter: raw (possibly invalid) model output for guard-rail tests
+                return example.get("stub_filter", example.get("expected_filter"))
         return {"error": "not in stub"}
     return parse_model_output(llm.generate(build_prompt(catalog, question), max_tokens=500))
 

@@ -9,6 +9,31 @@ Cloudflare Workers Static Assets(새 Cloudflare Pages)의 React + MUI 프론트�
 
 작업 방법: [AGENTS.ko.md](AGENTS.ko.md) (영문 원본 [AGENTS.md](AGENTS.md)).
 
+## BookFinder (이 프로젝트)
+
+2026-10-12에 이 템플릿으로 만들었고, `poc_samples.zip`(UX flow, E2E 카탈로그, 자연어 검색 가이드, RAG PoC)을 따랐습니다.
+
+| | |
+|---|---|
+| 앱 | https://bookfinder.kookastudios.workers.dev |
+| API | https://bookfinder-api.kookastudios.workers.dev/api/health |
+| 커버리지 | https://bookfinder.kookastudios.workers.dev/coverage/ |
+| 데이터 | 생성한 책 10,000권 (`backend/src/books/seed.py`, 결정적. 실제 제목 몇 개를 기준점으로 쓰고, 가격과 재고는 모두 가상) |
+| 테스트 | E2E 시나리오 114개 (core 43개, 커버리지 100%), 백엔드 + 프론트엔드 유닛 테스트 |
+
+템플릿 위에 더한 프로젝트 결정:
+
+| 주제 | 결정 | 이유 |
+|---|---|---|
+| 챗봇 | 명세의 "Ask the librarian"을 **Help** 도우미로 변경: 유저 가이드만 근거로 하는 RAG, 짧은 답변 + 링크 | 사용자 결정: 챗봇은 서비스 사용법만 안내하고, 책 데이터는 Vectorize에 넣지 않음 |
+| 삭제한 시나리오 | `DET-007`(이 책에 대해 질문), `CHAT-008`(책 문맥 칩), `CHAT-010`(추천 책), `GRD-004`(오래된 가격), `SAFE-003`(책 설명 속 지시문) | 카탈로그 챗봇에서만 의미가 있음 |
+| 바꾼 시나리오 | `CHAT-002` 토큰 스트리밍 없음(답이 한 번에 나오고 `CHAT-006` Stop은 요청 취소), `CHAT-007` 후속 질문은 이전 질문을 검색에 함께 사용, `GRD-005` 한국어 답변은 배포 사이트에서 확인(`@real`) | Python Workers + Workers AI는 응답을 한 번에 돌려주고, stub은 번역을 못 함 |
+| 데이터 모델 | 넓은 `Book` 테이블 하나. 저자 / 장르 / 형식은 조인 테이블 대신 `\|a\|b\|` 토큰 텍스트 | D1 무료 플랜: 하루 쓰기 10만 행 (시드에 약 5.1만 사용) |
+| 읽기 예산 | 검색 한 번에 D1 행을 최대 약 2만 개 읽음 (전체 수 + 패싯 개수 한 번, 현재 페이지 한 번) | 하루 읽기 500만 행 무료 한도로 약 250번 검색. 데모에는 충분 |
+| 자연어 안전장치 | D1에는 Postgres 읽기 전용 트랜잭션 / statement timeout이 없음. ORM `filter()`만 쓰고, 필터를 두 번 검증하고, 느리면 "Search took too long" 표시 | D1에는 `SET LOCAL`이 없음 |
+| 요청 제한 | `/api/nl-search/translate`와 `/api/rag/answers`에 클라이언트당 분당 10회 (429 + Retry-After), `RequestLog`로 계산 | 다른 서비스 없이 Worker isolate끼리 공유. 로컬 E2E에서는 끔(`RATE_LIMITS=0`) |
+| 시드 | CD 단계 `scripts/seed_d1.sh`가 `books_book`이 비어 있을 때만 한 번 책을 넣음 | 반복 쓰기 방지 |
+
 ---
 
 ## 1. 새 프로젝트 시작하기 (약 5분)

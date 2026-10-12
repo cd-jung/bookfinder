@@ -1,3 +1,4 @@
+import hashlib
 import json
 import sys
 import time
@@ -54,6 +55,8 @@ class RequestLogMiddleware:
         if request.method == "OPTIONS" or not request.path.startswith("/api/"):
             return self.get_response(request)
         request_id = request.headers.get("Cf-Ray") or uuid.uuid4().hex[:16]
+        ip = request.headers.get("Cf-Connecting-Ip") or request.META.get("REMOTE_ADDR", "")
+        request.client_key = hashlib.sha256(f"{settings.SECRET_KEY}:{ip}".encode()).hexdigest()[:16] if ip else ""
         started = time.perf_counter()
         error = ""
         try:
@@ -80,6 +83,7 @@ class RequestLogMiddleware:
             "level": level,
             "message": (message or "")[:500],
             "country": request.headers.get("Cf-Ipcountry", "")[:8],
+            "client": getattr(request, "client_key", ""),
         }
         print(json.dumps({"type": "request", **entry}))
         try:

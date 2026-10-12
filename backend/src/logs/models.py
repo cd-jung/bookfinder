@@ -15,6 +15,7 @@ class RequestLog(models.Model):
     level = models.CharField(max_length=5, choices=LEVELS, db_index=True)
     message = models.CharField(max_length=500, blank=True, default="")
     country = models.CharField(max_length=8, blank=True, default="")
+    client = models.CharField(max_length=16, blank=True, default="", db_index=True)  # salted IP hash
 
     class Meta:
         ordering = ["-created_at", "-id"]
