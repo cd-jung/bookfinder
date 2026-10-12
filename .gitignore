@@ -8,7 +8,7 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 dist/
-coverage/
+/coverage/
 backend/*.sqlite3
 .DS_Store
 .env
