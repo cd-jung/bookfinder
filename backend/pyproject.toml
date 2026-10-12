@@ -1,0 +1,38 @@
+[project]
+name = "app-backend"
+version = "0.1.0"
+description = "Django API running on Cloudflare Python Workers"
+requires-python = ">=3.13"
+# Only runtime dependencies go here: pywrangler vendors every package in this list into the Worker.
+dependencies = [
+    "django",
+    "django-cf",
+]
+
+[dependency-groups]
+dev = [
+    "workers-py",
+    "workers-runtime-sdk",
+    "pytest",
+    "pytest-django",
+    "pytest-cov",
+    "ruff",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings"
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["src/entry.py", "src/manage.py", "src/*/migrations/*", "src/*/management/*"]
+
+[tool.ruff]
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]  # the formatter owns line length

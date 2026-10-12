@@ -1,0 +1,79 @@
+{
+  "_comment": "E2E scenario catalog. Edit by hand together with ux-flows/*.md and tests/*.spec.js (see CLAUDE.md). Each scenario's nodes are '<flow prefix>:<node id>' in ux-flows.",
+  "_priority_rules": {
+    "_how_to_apply": "A scenario is 'core' if at least one core rule applies; otherwise it is 'secondary'. Record the deciding rule in 'rule' (the core rule wins when several apply).",
+    "core": {
+      "C1": "Page availability - every page and main section loads without error.",
+      "C2": "Search / data correctness - searches and lists return exactly the matching records.",
+      "C3": "Grounded answers - the assistant answers only from the User Guide and links to it.",
+      "C4": "AI safety & guard rails - generated filters are validated, out-of-scope questions are refused.",
+      "C5": "Failure handling on core paths - backend or LLM failure shows a recoverable message."
+    },
+    "secondary": {
+      "S1": "In-page UI behaviour - tabs, chips, pagination, open / close.",
+      "S2": "Informational content - counts, badges, disclaimers, placeholders.",
+      "S3": "Viewport / accessibility variant - mobile layout, keyboard only, screen reader.",
+      "S4": "Negative / edge input - blank, too long, invalid values.",
+      "S5": "Shortcut / URL state - deep links, back / forward, reload restore."
+    }
+  },
+  "accounts": {
+    "_note": "No login. These are test contexts, not user accounts.",
+    "anonymous": "Desktop Chrome, local stack with LLM_MODE=stub",
+    "anonymous_mobile": "Mobile viewport (Pixel 7)",
+    "llm_down": "Desktop, AI endpoints answer 502 / 503 (Playwright route interception)",
+    "api_down": "Desktop, data endpoints answer 500 (Playwright route interception)"
+  },
+  "journeys": [
+    {
+      "id": "app_shell",
+      "name": "App Shell & Navigation",
+      "flow": "01-app-shell.md",
+      "scenarios": [
+        { "id": "SHELL-001", "priority": "core", "rule": "C1", "account": "anonymous", "group": "Layout", "title": "Opening / shows the header, the left menu with every entry and the Help button", "nodes": ["01:shell", "01:menu", "01:permanent"] },
+        { "id": "SHELL-002", "priority": "secondary", "rule": "S1", "account": "anonymous", "group": "Layout", "title": "Menu entries open Home, User Guide and Logs & Monitoring; Coverage links to /coverage/", "nodes": ["01:home", "01:guide", "01:logs", "01:coverage"] },
+        { "id": "SHELL-003", "priority": "secondary", "rule": "S3", "account": "anonymous_mobile", "group": "Layout", "title": "Mobile: the menu button opens the drawer", "nodes": ["01:drawer"] },
+        { "id": "SHELL-004", "priority": "secondary", "rule": "S5", "account": "anonymous", "group": "URL state", "title": "Unknown path shows 'Page not found' with Go to Home", "nodes": ["01:notFound"] }
+      ]
+    },
+    {
+      "id": "user_guide",
+      "name": "User Guide",
+      "flow": "02-user-guide.md",
+      "scenarios": [
+        { "id": "GUIDE-001", "priority": "core", "rule": "C1", "account": "anonymous", "group": "Reading", "title": "User Guide shows the page list and the first page; clicking a page opens it", "nodes": ["02:list", "02:page"] },
+        { "id": "GUIDE-002", "priority": "secondary", "rule": "S5", "account": "anonymous", "group": "URL state", "title": "Deep link /guide/page#section scrolls to that heading", "nodes": ["02:deep", "02:anchor"] },
+        { "id": "GUIDE-003", "priority": "secondary", "rule": "S4", "account": "anonymous", "group": "URL state", "title": "Unknown page shows 'This User Guide page does not exist.'", "nodes": ["02:missing"] }
+      ]
+    },
+    {
+      "id": "help_assistant",
+      "name": "Help Assistant (RAG)",
+      "flow": "03-help-assistant.md",
+      "scenarios": [
+        { "id": "HELP-001", "priority": "core", "rule": "C1", "account": "anonymous", "group": "Conversation", "title": "Help opens the chat panel with the disclaimer and focus in the input", "nodes": ["03:panel"] },
+        { "id": "HELP-002", "priority": "core", "rule": "C3", "account": "anonymous", "group": "Conversation", "title": "A usage question gets a short summary and links to the User Guide sections", "nodes": ["03:send", "03:retrieve", "03:summary", "03:links"] },
+        { "id": "HELP-003", "priority": "core", "rule": "C3", "account": "anonymous", "group": "Conversation", "title": "Clicking a source link opens that User Guide section", "nodes": ["03:guide"] },
+        { "id": "HELP-004", "priority": "core", "rule": "C4", "account": "anonymous", "group": "Grounding", "title": "A question the guide does not cover gets 'I couldn't find that in the User Guide' and no links", "nodes": ["03:noContext"] },
+        { "id": "HELP-005", "priority": "core", "rule": "C5", "account": "llm_down", "group": "Failure", "title": "AI unavailable shows the error with Retry; Retry resends the question", "nodes": ["03:error"] },
+        { "id": "HELP-006", "priority": "secondary", "rule": "S4", "account": "anonymous", "group": "Input", "title": "Enter sends, Shift+Enter adds a new line, blank input keeps Send disabled", "nodes": ["03:input", "03:newline", "03:disabled"] },
+        { "id": "HELP-007", "priority": "secondary", "rule": "S5", "account": "anonymous", "group": "Conversation", "title": "Close then reopen or reload keeps the conversation; New conversation clears it", "nodes": ["03:close", "03:clear"] }
+      ]
+    },
+    {
+      "id": "logs_monitoring",
+      "name": "Logs & Monitoring",
+      "flow": "04-logs-monitoring.md",
+      "scenarios": [
+        { "id": "LOGS-001", "priority": "core", "rule": "C1", "account": "anonymous", "group": "Dashboard", "title": "Dashboard shows request, error rate, p95 and client error cards and the hourly chart", "nodes": ["04:dashboard", "04:chart"] },
+        { "id": "LOGS-002", "priority": "core", "rule": "C2", "account": "anonymous", "group": "Plain language search", "title": "A plain language question shows 'Interpreted as' and only matching log rows", "nodes": ["04:nlTab", "04:question", "04:translate", "04:interpreted", "04:table"] },
+        { "id": "LOGS-003", "priority": "core", "rule": "C4", "account": "anonymous", "group": "Plain language search", "title": "A question that is not about logs asks to rephrase", "nodes": ["04:rephrase"] },
+        { "id": "LOGS-004", "priority": "core", "rule": "C5", "account": "llm_down", "group": "Plain language search", "title": "LLM unavailable shows 'The AI search is unavailable.'", "nodes": ["04:unavailable"] },
+        { "id": "LOGS-005", "priority": "secondary", "rule": "S1", "account": "anonymous", "group": "Keyword search", "title": "Keyword and level filter narrow the table", "nodes": ["04:kwTab", "04:keyword"] },
+        { "id": "LOGS-006", "priority": "secondary", "rule": "S1", "account": "anonymous", "group": "Dashboard", "title": "Changing the time range reloads the dashboard", "nodes": ["04:range"] },
+        { "id": "LOGS-007", "priority": "secondary", "rule": "S2", "account": "api_down", "group": "Dashboard", "title": "Dashboard API error shows the message with Retry", "nodes": ["04:dashError"] },
+        { "id": "LOGS-008", "priority": "secondary", "rule": "S2", "account": "anonymous", "group": "Keyword search", "title": "No matching logs shows 'No log entries match.'", "nodes": ["04:empty"] }
+      ]
+    }
+  ]
+}

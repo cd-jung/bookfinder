@@ -1,0 +1,150 @@
+# CI/CD: every push and pull request runs the full verification; pushes to main then deploy.
+#
+# Required repository secret: CLOUDFLARE_API_TOKEN (see README.md "Cloudflare API token").
+# Everything else (account id, names) comes from project.config.json.
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_COLOR: "1"
+
+jobs:
+  verify:
+    name: Lint, unit, consistency, E2E, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            e2e/package-lock.json
+            backend/package-lock.json
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: |
+          (cd backend && uv sync && npm ci)
+          (cd frontend && npm ci)
+          (cd e2e && npm ci && npx playwright install --with-deps chromium)
+
+      - name: Lint and type-check
+        run: npm run lint
+
+      - name: Unit tests (backend + frontend, with coverage)
+        run: npm run test:unit
+
+      - name: Consistency check (UX flows, scenarios, tests, User Guide, D1 migrations)
+        run: node scripts/check-consistency.mjs --with-backend --strict
+
+      - name: E2E tests (local stack, LLM stub)
+        run: npm run test:e2e
+
+      - name: Scenario coverage summary
+        run: npm run coverage
+
+      - name: Build site (app + /coverage/ + /ux-flows/)
+        run: |
+          WORKER=$(jq -r '.cloudflare.workerName' project.config.json)
+          SUBDOMAIN=$(jq -r '.cloudflare.workersSubdomain' project.config.json)
+          VITE_API_BASE="https://${WORKER}.${SUBDOMAIN}.workers.dev" npm run build:site
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: frontend/dist
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 7
+
+  deploy:
+    name: Deploy to Cloudflare
+    needs: verify
+    # The template repository itself has no Cloudflare resources; only projects created from it deploy.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && !github.event.repository.is_template
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Read project config
+        id: cfg
+        run: |
+          {
+            echo "account=$(jq -r '.cloudflare.accountId' project.config.json)"
+            echo "worker=$(jq -r '.cloudflare.workerName' project.config.json)"
+            echo "subdomain=$(jq -r '.cloudflare.workersSubdomain' project.config.json)"
+            echo "pages=$(jq -r '.cloudflare.pagesProject' project.config.json)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Install backend tooling
+        run: cd backend && uv sync && npm ci
+
+      - name: Apply D1 migrations
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.cfg.outputs.account }}
+        run: cd backend && npx wrangler d1 migrations apply DB --remote
+
+      - name: Deploy API Worker (Django on Python Workers)
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.cfg.outputs.account }}
+        run: cd backend && uv run pywrangler deploy
+
+      - name: Index the User Guide into Vectorize
+        run: python3 backend/scripts/index_guide.py
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: site
+
+      - name: Deploy frontend to Pages
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.cfg.outputs.account }}
+        run: cd backend && npx wrangler pages deploy ../site --project-name "${{ steps.cfg.outputs.pages }}" --branch main --commit-dirty=true
+
+      - name: Smoke test
+        run: |
+          API="https://${{ steps.cfg.outputs.worker }}.${{ steps.cfg.outputs.subdomain }}.workers.dev"
+          for i in 1 2 3 4 5; do
+            if curl -fsS "$API/api/health" | grep -q '"status": "ok"'; then break; fi
+            sleep 10
+          done
+          curl -fsS "$API/api/health"
+          curl -fsS -o /dev/null "https://${{ steps.cfg.outputs.pages }}.pages.dev/"
+          curl -fsS -o /dev/null "https://${{ steps.cfg.outputs.pages }}.pages.dev/coverage/"
+          echo "Deployed: https://${{ steps.cfg.outputs.pages }}.pages.dev  API: $API"

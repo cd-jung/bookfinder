@@ -1,0 +1,17 @@
+{
+  "name": "app-e2e",
+  "version": "0.0.0",
+  "private": true,
+  "description": "UX-flow based E2E scenarios (Playwright) and the coverage report.",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "report": "playwright show-report",
+    "coverage": "node scripts/coverage.js --soft",
+    "coverage:strict": "node scripts/coverage.js",
+    "report:coverage": "node scripts/report-html.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.49.1"
+  }
+}

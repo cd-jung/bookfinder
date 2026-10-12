@@ -1,0 +1,14 @@
+{
+  "name": "app-backend-tools",
+  "private": true,
+  "description": "Pins the wrangler version that pywrangler and the D1 migration commands use.",
+  "scripts": {
+    "deploy": "uv run pywrangler deploy",
+    "dev": "uv run pywrangler dev",
+    "migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "4.149.0"
+  }
+}

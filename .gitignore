@@ -1,0 +1,16 @@
+node_modules/
+.venv/
+.venv-workers/
+python_modules/
+__pycache__/
+*.pyc
+.wrangler/
+.pytest_cache/
+.ruff_cache/
+dist/
+coverage/
+backend/*.sqlite3
+.DS_Store
+.env
+.dev.vars
+.coverage

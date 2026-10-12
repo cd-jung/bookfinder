@@ -1,0 +1,20 @@
+{
+  "name": "app-root",
+  "private": true,
+  "description": "Task runner for the whole repo. See CLAUDE.md for the workflow.",
+  "scripts": {
+    "setup": "cd backend && uv sync && cd ../frontend && npm ci && cd ../e2e && npm ci && npx playwright install --with-deps chromium",
+    "dev": "bash scripts/dev.sh",
+    "lint": "cd backend && uv run ruff check . && uv run ruff format --check . && cd ../frontend && npm run lint && npm run typecheck",
+    "test:backend": "cd backend && uv run pytest --cov --cov-report=term --cov-report=json:../coverage/backend/coverage.json --junitxml=../coverage/backend/junit.xml",
+    "test:frontend": "cd frontend && npm run test:unit",
+    "test:unit": "npm run test:backend && npm run test:frontend && node scripts/unit-summary.mjs",
+    "test:e2e": "cd e2e && npx playwright test",
+    "flows": "python3 ux-flows/build.py",
+    "migrations": "cd backend && uv run python src/manage.py makemigrations && uv run python scripts/export_d1_migrations.py",
+    "check": "node scripts/check-consistency.mjs --with-backend",
+    "coverage": "cd e2e && npm run coverage",
+    "build:site": "bash scripts/build-site.sh",
+    "verify": "npm run lint && npm run test:unit && npm run check && npm run test:e2e"
+  }
+}

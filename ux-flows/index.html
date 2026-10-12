@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>UX Flows</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --border: #d9dde3;
+      --text: #1f2933;
+      --muted: #5f6b7a;
+      --accent: #2f5d9e;
+      --accent-bg: #e8f0fe;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    header h1 { font-size: 18px; margin: 0 auto 0 0; }
+    button, .file-label {
+      font: inherit;
+      font-size: 13px;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+    }
+    button:hover, .file-label:hover { background: var(--accent-bg); }
+    button:focus-visible, .file-label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .file-label input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+    label.check { font-size: 13px; display: flex; align-items: center; gap: 4px; }
+    #layout { flex: 1; display: flex; min-height: 0; }
+    nav {
+      width: 290px;
+      flex-shrink: 0;
+      overflow-y: auto;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      padding: 8px;
+    }
+    nav ul { list-style: none; margin: 0; padding: 0; }
+    nav li button {
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      margin-bottom: 4px;
+      display: block;
+    }
+    nav li button[aria-current="true"] { background: var(--accent-bg); border-color: var(--accent); }
+    nav .fname { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+    #status { font-size: 12px; color: var(--muted); padding: 8px 4px; white-space: pre-wrap; }
+    main { flex: 1; overflow: auto; padding: 16px 24px; }
+    main h2 { margin: 0 0 4px; font-size: 20px; }
+    #docFile { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+    #diagram {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 12px;
+      overflow: auto;
+    }
+    #diagram.fit svg { max-width: 100%; height: auto; }
+    #errors { color: #b00020; font-size: 13px; white-space: pre-wrap; }
+    #notes { font-size: 14px; line-height: 1.5; }
+    #notes code, pre { background: #eef1f5; border-radius: 3px; padding: 1px 4px; font-size: 12px; }
+    pre { padding: 10px; overflow: auto; }
+    details { margin-top: 12px; }
+    .empty { color: var(--muted); padding: 40px; text-align: center; white-space: pre-wrap; }
+    .legend { display: flex; gap: 16px; font-size: 12px; color: var(--muted); margin: 8px 0; flex-wrap: wrap; }
+    .legend span::before {
+      content: '';
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      margin-right: 4px;
+      vertical-align: -2px;
+      border: 1px solid;
+    }
+    .legend .screen::before { background: #e8f0fe; border-color: #2f5d9e; }
+    .legend .link::before { background: #e6f4ea; border-color: #2e7d32; }
+    .legend .hidden::before { background: #fdecea; border: 1px dashed #c62828; }
+    .legend .internal::before { background: #f0f0f0; border-color: #cfcfcf; }
+    .legend .exception::before { background: #fff4e5; border-color: #ef6c00; }
+    .legend .decision::before { background: #fff; border-color: #888; transform: rotate(45deg) scale(0.8); }
+    body.dragging main { outline: 3px dashed var(--accent); outline-offset: -8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>UX Flows</h1>
+    <button type="button" id="reloadBtn">Reload</button>
+    <label class="file-label">Open .md files
+      <input type="file" id="fileInput" accept=".md,text/markdown" multiple />
+    </label>
+    <label class="check"><input type="checkbox" id="fitToggle" checked /> Fit to width</label>
+    <button type="button" id="downloadBtn">Download SVG</button>
+  </header>
+  <div id="layout">
+    <nav aria-label="Scenarios">
+      <ul id="list"></ul>
+      <p id="status" role="status"></p>
+    </nav>
+    <main>
+      <h2 id="docTitle"></h2>
+      <div id="docFile"></div>
+      <div class="legend" aria-hidden="true">
+        <span class="screen">Screen / page</span>
+        <span class="link">Goes to another scenario</span>
+        <span class="hidden">Hidden / blocked</span>
+        <span class="decision">Decision</span>
+        <span class="internal">Not E2E (internal step)</span>
+        <span class="exception">Exception path</span>
+      </div>
+      <div id="diagram" class="fit"><div class="empty">No scenario loaded.</div></div>
+      <div id="errors"></div>
+      <div id="notes"></div>
+      <details>
+        <summary>Diagram source</summary>
+        <pre id="source"></pre>
+      </details>
+    </main>
+  </div>
+
+  <!-- Mermaid library (local copy, no CDN) -->
+  <script src="mermaid.min.js"></script>
+  <!-- Bundled scenarios (generated by build.py) so the page works from file:// -->
+  <!-- Cache-bust so a rebuilt scenarios.js is always picked up (file:// ignores the query) -->
+  <script>document.write('<script src="scenarios.js?v=' + Date.now() + '"><\/script>');</script>
+  <script>
+    'use strict';
+
+    const $ = (id) => document.getElementById(id);
+    const state = { docs: [], current: -1, svg: '', renderSeq: 0 };
+    const hasMermaid = typeof window.mermaid !== 'undefined';
+
+    if (hasMermaid) {
+      window.mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: 'strict',
+        theme: 'default',
+        flowchart: { useMaxWidth: false, htmlLabels: true, curve: 'basis' }
+      });
+    }
+
+    // ------------------------------------------------------------------
+    // Markdown handling (diagram = ```mermaid block, else first fenced block)
+    // ------------------------------------------------------------------
+    function parseDoc(name, text) {
+      const normalized = text.replace(/\r\n/g, '\n');
+      const codeMatch = normalized.match(/```mermaid[^\n]*\n([\s\S]*?)```/) || normalized.match(/```[^\n]*\n([\s\S]*?)```/);
+      const heading = (normalized.match(/^#\s+(.+)$/m) || [])[1];
+      const rest = normalized.replace(/```[\s\S]*?```/g, '').replace(/^#\s+.+$/m, '');
+      const code = codeMatch ? codeMatch[1].trim() : '';
+      // Node links, declared as Mermaid comments: %% link <nodeId> <file.md>
+      const links = {};
+      [...code.matchAll(/^\s*%%\s*link\s+(\S+)\s+(\S+\.md)\s*$/gm)].forEach((m) => {
+        links[m[1]] = m[2];
+      });
+      return { name, code, links, title: heading || name, notes: rest.trim() };
+    }
+
+    // Make linked nodes clickable (mouse + keyboard)
+    function attachNodeLinks(svgEl, doc) {
+      svgEl.querySelectorAll('g.node').forEach((node) => {
+        const domId = node.getAttribute('id') || '';
+        const m = domId.match(/flowchart-(.+)-\d+$/);
+        const nodeId = node.getAttribute('data-id') || (m && m[1]);
+        const target = nodeId && doc.links[nodeId];
+        if (!target) return;
+        const idx = state.docs.findIndex((d) => d.name === target);
+        if (idx < 0) return;
+        const go = () => select(idx);
+        node.style.cursor = 'pointer';
+        node.setAttribute('tabindex', '0');
+        node.setAttribute('role', 'link');
+        node.setAttribute('aria-label', `Open ${state.docs[idx].title}`);
+        const tip = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        tip.textContent = `Open ${state.docs[idx].title}`;
+        node.prepend(tip);
+        node.addEventListener('click', go);
+        node.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            go();
+          }
+        });
+      });
+    }
+
+    // Minimal, safe markdown rendering (textContent only)
+    function appendInline(parent, text) {
+      text.split(/(`[^`]+`)/).forEach((part) => {
+        if (part.startsWith('`') && part.endsWith('`') && part.length > 1) {
+          const c = document.createElement('code');
+          c.textContent = part.slice(1, -1);
+          parent.appendChild(c);
+        } else if (part) {
+          parent.appendChild(document.createTextNode(part));
+        }
+      });
+    }
+
+    function renderNotes(container, md) {
+      container.replaceChildren();
+      let list = null;
+      md.split('\n').forEach((line) => {
+        const trimmed = line.trim();
+        let m;
+        if (!trimmed) {
+          list = null;
+        } else if ((m = trimmed.match(/^(#{2,6})\s+(.*)$/))) {
+          list = null;
+          const h = document.createElement('h3');
+          appendInline(h, m[2]);
+          container.appendChild(h);
+        } else if ((m = trimmed.match(/^[-*]\s+(.*)$/))) {
+          if (!list) {
+            list = document.createElement('ul');
+            container.appendChild(list);
+          }
+          const li = document.createElement('li');
+          appendInline(li, m[1]);
+          list.appendChild(li);
+        } else {
+          list = null;
+          const p = document.createElement('p');
+          appendInline(p, trimmed);
+          container.appendChild(p);
+        }
+      });
+    }
+
+    // ------------------------------------------------------------------
+    // App
+    // ------------------------------------------------------------------
+    function setStatus(msg) {
+      $('status').textContent = msg;
+    }
+
+    function setDocs(rawDocs) {
+      state.docs = rawDocs
+        .filter((r) => r.name.toLowerCase().endsWith('.md'))
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((r) => parseDoc(r.name, r.text));
+      const list = $('list');
+      list.replaceChildren();
+      state.docs.forEach((doc, i) => {
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = doc.title;
+        const small = document.createElement('span');
+        small.className = 'fname';
+        small.textContent = doc.name;
+        btn.appendChild(small);
+        btn.addEventListener('click', () => select(i));
+        li.appendChild(btn);
+        list.appendChild(li);
+      });
+      const fromHash = state.docs.findIndex((doc) => doc.name === decodeURIComponent(location.hash.slice(1)));
+      if (state.docs.length) select(fromHash >= 0 ? fromHash : Math.min(Math.max(state.current, 0), state.docs.length - 1));
+    }
+
+    async function select(i) {
+      const doc = state.docs[i];
+      if (!doc) return;
+      state.current = i;
+      document.querySelectorAll('#list button').forEach((b, k) => b.setAttribute('aria-current', String(k === i)));
+      history.replaceState(null, '', `#${encodeURIComponent(doc.name)}`);
+      $('docTitle').textContent = doc.title;
+      $('docFile').textContent = doc.name;
+      $('errors').textContent = '';
+      renderNotes($('notes'), doc.notes);
+      $('source').textContent = doc.code;
+
+      const holder = $('diagram');
+      state.svg = '';
+      if (!hasMermaid) {
+        const msg = document.createElement('div');
+        msg.className = 'empty';
+        msg.textContent = 'mermaid.min.js not found next to index.html.\nDownload it and place it in this folder, then refresh.';
+        holder.replaceChildren(msg);
+        return;
+      }
+      if (!doc.code) {
+        $('errors').textContent = 'No fenced code block found in the file';
+        holder.replaceChildren();
+        return;
+      }
+      // Ignore results of stale renders when the user switches quickly
+      const seq = ++state.renderSeq;
+      try {
+        const { svg } = await window.mermaid.render(`uxflow-${seq}`, doc.code);
+        if (seq !== state.renderSeq) return;
+        state.svg = svg;
+        // Mermaid output is sanitised (securityLevel: strict)
+        holder.innerHTML = svg;
+        const svgEl = holder.querySelector('svg');
+        if (svgEl) {
+          svgEl.setAttribute('role', 'img');
+          svgEl.setAttribute('aria-label', doc.title);
+          attachNodeLinks(svgEl, doc);
+        }
+      } catch (e) {
+        if (seq !== state.renderSeq) return;
+        holder.replaceChildren();
+        $('errors').textContent = `Mermaid error: ${e.message || e}`;
+        // Remove the error placeholder Mermaid may leave in the body
+        document.querySelectorAll(`#duxflow-${seq}, #uxflow-${seq}`).forEach((n) => n.remove());
+      }
+    }
+
+    // Fallback: scenarios bundled into scenarios.js by build.py
+    function loadBundled(reason) {
+      const bundled = window.UX_FLOW_SCENARIOS;
+      if (Array.isArray(bundled) && bundled.length) {
+        setDocs(bundled);
+        setStatus(`${state.docs.length} scenario(s) loaded from scenarios.js${reason ? ` (${reason})` : ''}.\nRun "python3 build.py" after editing .md files.`);
+        return;
+      }
+      setStatus('No scenarios found. Run "python3 build.py" in this folder, or use "Open .md files".');
+    }
+
+    // Served over http: read the live .md files from the directory listing
+    async function loadLive() {
+      const res = await fetch('./', { cache: 'no-store' });
+      const html = await res.text();
+      const names = [...new Set([...html.matchAll(/href="([^"?#/]+\.md)"/gi)].map((m) => decodeURIComponent(m[1])))];
+      if (!names.length) return false;
+      const docs = await Promise.all(
+        names.map(async (name) => ({ name, text: await (await fetch(encodeURIComponent(name), { cache: 'no-store' })).text() }))
+      );
+      setDocs(docs);
+      setStatus(`${state.docs.length} scenario(s) loaded (live)`);
+      return true;
+    }
+
+    async function loadAll() {
+      if (!location.protocol.startsWith('http')) {
+        loadBundled('file://');
+        return;
+      }
+      try {
+        setStatus('Loading...');
+        if (!(await loadLive())) loadBundled('no .md in directory listing');
+      } catch (e) {
+        loadBundled(`live load failed: ${e.message}`);
+      }
+    }
+
+    async function loadFiles(fileList) {
+      const files = [...fileList].filter((f) => f.name.toLowerCase().endsWith('.md'));
+      if (!files.length) return;
+      setDocs(await Promise.all(files.map(async (f) => ({ name: f.name, text: await f.text() }))));
+      setStatus(`${state.docs.length} scenario(s) loaded from selected files`);
+    }
+
+    $('reloadBtn').addEventListener('click', loadAll);
+    $('fileInput').addEventListener('change', (e) => loadFiles(e.target.files));
+    $('fitToggle').addEventListener('change', (e) => $('diagram').classList.toggle('fit', e.target.checked));
+    $('downloadBtn').addEventListener('click', () => {
+      const doc = state.docs[state.current];
+      if (!state.svg || !doc) return;
+      const blob = new Blob([state.svg], { type: 'image/svg+xml' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = doc.name.replace(/\.md$/i, '.svg');
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT') return;
+      if (e.key === 'ArrowDown') select(state.current + 1);
+      if (e.key === 'ArrowUp') select(state.current - 1);
+    });
+    ['dragenter', 'dragover'].forEach((t) =>
+      document.addEventListener(t, (e) => {
+        e.preventDefault();
+        document.body.classList.add('dragging');
+      })
+    );
+    ['dragleave', 'drop'].forEach((t) =>
+      document.addEventListener(t, (e) => {
+        e.preventDefault();
+        document.body.classList.remove('dragging');
+        if (t === 'drop') loadFiles(e.dataTransfer.files);
+      })
+    );
+
+    loadAll();
+  </script>
+</body>
+</html>
