@@ -14,7 +14,7 @@
 	"vars": {
 		"ADMIN_EMAILS": "kookastudios@gmail.com", // from project.config.json
 		"ACCESS_TEAM_DOMAIN": "jolly-smoke-0c81.cloudflareaccess.com", // from project.config.json (set after Zero Trust onboarding)
-		"ACCESS_AUD": "" // from project.config.json (Access application audience tag)
+		"ACCESS_AUD": "7915a8f2fd0d3deef927464ca07e9db7e188927783425c33aeae6e1557dc8746" // from project.config.json (Access application audience tag)
 	},
 	"observability": { "enabled": true }
 }
