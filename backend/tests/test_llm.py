@@ -37,3 +37,7 @@ def test_text_of_accepts_workers_ai_shapes(result, text):
 def test_text_of_rejects_empty_answers(result):
     with pytest.raises(llm.LLMUnavailableError, match="empty answer"):
         llm._text_of(result)
+
+
+def test_py_passes_python_values_through():
+    assert llm._py({"matches": []}) == {"matches": []}

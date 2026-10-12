@@ -45,6 +45,16 @@ def _js(value):
     return to_js(value, dict_converter=Object.fromEntries)
 
 
+def _py(value):
+    """Convert a JS result to plain Python. Binding results can be class instances (e.g. VectorizeMatches),
+    which Pyodide's to_py() leaves as JsProxy, so go through JSON."""
+    if not hasattr(value, "to_py"):
+        return value
+    from js import JSON
+
+    return json.loads(JSON.stringify(value))
+
+
 def _run_ai(model, payload):
     from pyodide.ffi import run_sync
 
@@ -60,7 +70,7 @@ def _run_ai(model, payload):
         if "timeout" in message.lower():
             raise LLMTimeoutError("The AI service took too long to respond.") from exc
         raise LLMUnavailableError(f"The AI service failed: {message[:200]}") from exc
-    return result.to_py() if hasattr(result, "to_py") else result
+    return _py(result)
 
 
 def generate(prompt, *, system=None, max_tokens=600):
@@ -107,8 +117,7 @@ def vector_query(vector, top_k):
     env = workers_env()
     if env is None or not hasattr(env, "VECTORIZE"):
         raise LLMUnavailableError("Vectorize binding is not configured.")
-    result = run_sync(env.VECTORIZE.query(_js(vector), _js({"topK": top_k, "returnMetadata": "all"})))
-    result = result.to_py() if hasattr(result, "to_py") else result
+    result = _py(run_sync(env.VECTORIZE.query(_js(vector), _js({"topK": top_k, "returnMetadata": "all"}))))
     return [
         {"id": m.get("id"), "score": float(m.get("score", 0)), "metadata": m.get("metadata") or {}}
         for m in result.get("matches", [])
