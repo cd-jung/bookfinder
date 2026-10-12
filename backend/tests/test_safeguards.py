@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -47,8 +47,8 @@ def test_daily_ai_budget(settings):
     llm._spend_budget()
     with pytest.raises(llm.LLMUnavailableError, match="daily AI budget"):
         llm._spend_budget()
-    assert AiUsage.objects.get(day=datetime.now(UTC).date()).calls == 3
-    AiUsage.objects.create(day=date(2020, 1, 1), calls=999)  # other days do not count
+    assert AiUsage.objects.get(day=datetime.now(UTC).date().isoformat()).calls == 3
+    AiUsage.objects.create(day="2020-01-01", calls=999)  # other days do not count
 
 
 def test_oversized_bodies_are_rejected(client):

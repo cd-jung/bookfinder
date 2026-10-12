@@ -25,6 +25,13 @@ if ON_WORKERS and SECRET_KEY.startswith("insecure-"):
     print("DJANGO_SECRET_KEY is not set; using a random per-isolate key", file=sys.stderr)
     SECRET_KEY = secrets.token_urlsafe(48)
 DEBUG = False
+# Unhandled errors go to stderr, which Workers Logs / `wrangler tail` show (Django's default would mail admins).
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "loggers": {"django.request": {"handlers": ["console"], "level": "ERROR"}},
+}
 ALLOWED_HOSTS = [h.strip() for h in setting("ALLOWED_HOSTS", "*").split(",") if h.strip()]
 # Abuse limits: requests are small JSON; refuse big bodies before Django parses them.
 DATA_UPLOAD_MAX_MEMORY_SIZE = 64 * 1024

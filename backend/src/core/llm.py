@@ -59,14 +59,22 @@ def _spend_budget():
     """Count one real AI call against today's AI_DAILY_LIMIT; refuse once the budget is used up."""
     from datetime import UTC, datetime
 
+    from django.db import IntegrityError
     from django.db.models import F
 
     from core.models import AiUsage
 
-    day = datetime.now(UTC).date()
-    if not AiUsage.objects.filter(day=day).update(calls=F("calls") + 1):
-        AiUsage.objects.get_or_create(day=day, defaults={"calls": 1})
-    if AiUsage.objects.get(day=day).calls > settings.AI_DAILY_LIMIT:
+    day = datetime.now(UTC).date().isoformat()
+    # No get_or_create (opens a transaction, unsupported on D1) and no reliance on update()'s row count
+    # (django-cf reports rows read, not rows changed).
+    if AiUsage.objects.filter(day=day).exists():
+        AiUsage.objects.filter(day=day).update(calls=F("calls") + 1)
+    else:
+        try:
+            AiUsage.objects.create(day=day, calls=1)
+        except IntegrityError:  # another isolate created today's row first
+            AiUsage.objects.filter(day=day).update(calls=F("calls") + 1)
+    if (AiUsage.objects.filter(day=day).values_list("calls", flat=True).first() or 0) > settings.AI_DAILY_LIMIT:
         raise LLMUnavailableError("The daily AI budget is used up. Please try again tomorrow.")
 
 

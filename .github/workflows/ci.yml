@@ -159,7 +159,7 @@ jobs:
           curl -fsS -o /dev/null "$APP/"
           curl -fsS -o /dev/null "$APP/logs"
           curl -fsS -o /dev/null "$APP/coverage"
-          curl -fsS "$APP/reports/coverage.html" | grep -q 'content="coverage-report"'
+          curl -fsSL "$APP/reports/coverage.html" | grep -q 'content="coverage-report"'
           echo "Deployed: $APP  API: $API"
 
       - name: Real-model E2E checks on the deployed site (@real)
