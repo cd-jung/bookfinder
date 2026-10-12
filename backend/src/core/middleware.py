@@ -1,11 +1,13 @@
 import hashlib
 import json
+import random
 import sys
 import time
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 
 
 class CorsMiddleware:
@@ -39,6 +41,49 @@ class CorsMiddleware:
             and origin.endswith("-" + o[len("https://") :])
             for o in settings.ALLOWED_ORIGINS
         )
+
+
+class EdgeRateLimitMiddleware:
+    """Per-client request limits enforced by Cloudflare's Rate Limiting bindings (no D1 reads or writes).
+
+    API_LIMITER covers every /api/ request, AI_LIMITER the endpoints that call Workers AI. Limits are set
+    in wrangler.jsonc ("ratelimits"). Locally (no bindings) and with RATE_LIMITS=0 this does nothing.
+    """
+
+    AI_PATHS = ("/translate", "/api/rag/answers")
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.method == "OPTIONS" or not request.path.startswith("/api/") or not settings.RATE_LIMITS:
+            return self.get_response(request)
+        key = request.headers.get("Cf-Connecting-Ip") or request.META.get("REMOTE_ADDR", "")
+        if not self._allowed("API_LIMITER", key) or (
+            request.path.endswith(self.AI_PATHS) and not self._allowed("AI_LIMITER", key)
+        ):
+            response = JsonResponse({"detail": "Too many requests, please wait a minute", "retryAfter": 60}, status=429)
+            response["Retry-After"] = "60"
+            return response
+        return self.get_response(request)
+
+    @staticmethod
+    def _allowed(binding, key):
+        from core.runtime import workers_env
+
+        env = workers_env()
+        limiter = getattr(env, binding, None) if env is not None else None
+        if limiter is None or not key:
+            return True
+        try:
+            from js import Object
+            from pyodide.ffi import run_sync, to_js
+
+            outcome = run_sync(limiter.limit(to_js({"key": key}, dict_converter=Object.fromEntries)))
+            return bool(getattr(outcome, "success", True))
+        except Exception as exc:  # a limiter failure must not take the API down
+            print(f"rate limiter {binding} failed: {exc}", file=sys.stderr)
+            return True
 
 
 class RequestLogMiddleware:
@@ -88,5 +133,15 @@ class RequestLogMiddleware:
         print(json.dumps({"type": "request", **entry}))
         try:
             RequestLog.objects.create(**entry)
+            if random.random() < 0.005:
+                self._prune(RequestLog)
         except Exception as exc:
             print(f"request log write failed: {exc}", file=sys.stderr)
+
+    @staticmethod
+    def _prune(model):
+        """Delete a batch of logs older than LOG_RETENTION_DAYS (keeps D1 storage bounded)."""
+        cutoff = datetime.now(UTC) - timedelta(days=settings.LOG_RETENTION_DAYS)
+        old = list(model.objects.filter(created_at__lt=cutoff).values_list("id", flat=True)[:500])
+        if old:
+            model.objects.filter(id__in=old).delete()

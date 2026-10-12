@@ -17,8 +17,21 @@ DJANGO_ENV = "test" if "pytest" in sys.modules else setting("DJANGO_ENV", "local
 ON_WORKERS = DJANGO_ENV == "workers"
 
 SECRET_KEY = setting("DJANGO_SECRET_KEY", "insecure-local-key-only-for-development")
+if ON_WORKERS and SECRET_KEY.startswith("insecure-"):
+    # Never use the public default in production. CD sets the real secret (backend/scripts/ensure_secret.sh);
+    # until then each isolate uses a random key (client hashes are then not stable across isolates).
+    import secrets
+
+    print("DJANGO_SECRET_KEY is not set; using a random per-isolate key", file=sys.stderr)
+    SECRET_KEY = secrets.token_urlsafe(48)
 DEBUG = False
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = [h.strip() for h in setting("ALLOWED_HOSTS", "*").split(",") if h.strip()]
+# Abuse limits: requests are small JSON; refuse big bodies before Django parses them.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 64 * 1024
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 200
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+X_FRAME_OPTIONS = "DENY"
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -27,7 +40,12 @@ TIME_ZONE = "UTC"
 
 # Kept minimal on purpose: every app adds Worker start-up and per-request CPU time.
 INSTALLED_APPS = ["core", "logs", "rag", "books"]
-MIDDLEWARE = ["core.middleware.CorsMiddleware", "core.middleware.RequestLogMiddleware"]
+MIDDLEWARE = [
+    "core.middleware.CorsMiddleware",  # outermost, so even 429 / 413 responses are readable by the frontend
+    "django.middleware.security.SecurityMiddleware",
+    "core.middleware.EdgeRateLimitMiddleware",  # before logging: blocked floods cost no D1 writes
+    "core.middleware.RequestLogMiddleware",
+]
 
 if ON_WORKERS:
     DATABASES = {"default": {"ENGINE": "django_cf.db.backends.d1", "CLOUDFLARE_BINDING": "DB"}}
@@ -52,4 +70,8 @@ RAG_TOP_K = int(setting("RAG_TOP_K", "5"))
 RAG_MINIMUM_SIMILARITY = float(setting("RAG_MINIMUM_SIMILARITY", "0.5"))
 # Per-client limits on AI endpoints (core.ratelimit); E2E turns them off because every test shares one IP.
 RATE_LIMITS = setting("RATE_LIMITS", "1") != "0"
+# Cost guard: real Workers AI calls (LLM + embeddings) allowed per UTC day across all users.
+AI_DAILY_LIMIT = int(setting("AI_DAILY_LIMIT", "500"))
+# Request logs older than this are deleted (a few rows at a time, on ~1 in 200 requests).
+LOG_RETENTION_DAYS = int(setting("LOG_RETENTION_DAYS", "14"))
 USER_GUIDE_DIR = Path(setting("USER_GUIDE_DIR", str(REPO_ROOT / "docs" / "user-guide")))

@@ -13,6 +13,13 @@
 		}
 	],
 	"ai": { "binding": "AI" },
+	// Edge rate limits per client IP (core.middleware.EdgeRateLimitMiddleware): no D1 cost when exceeded.
+	"ratelimits": [
+		{ "name": "API_LIMITER", "namespace_id": "1001", "simple": { "limit": 120, "period": 60 } },
+		{ "name": "AI_LIMITER", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } }
+	],
+	// Hard cap on CPU per request (cost guard). Django needs ~60 ms; cold starts are not counted.
+	"limits": { "cpu_ms": 5000 },
 	"vectorize": [
 		{ "binding": "VECTORIZE", "index_name": "bookfinder-guide" } // from project.config.json
 	],
@@ -24,7 +31,9 @@
 		"EMBEDDING_MODEL": "@cf/baai/bge-m3", // from project.config.json
 		"LLM_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast", // from project.config.json
 		"RAG_TOP_K": "5", // from project.config.json
-		"RAG_MINIMUM_SIMILARITY": "0.5" // from project.config.json
+		"RAG_MINIMUM_SIMILARITY": "0.5", // from project.config.json
+		"AI_DAILY_LIMIT": "500",
+		"ALLOWED_HOSTS": "bookfinder-api.kookastudios.workers.dev" // from project.config.json
 	},
 	"observability": { "enabled": true }
 }

@@ -1,204 +1,217 @@
-# 풀스택 Cloudflare 템플릿 (한국어 번역본)
+# BookFinder (한국어)
 
-> 원본은 `README.md`(영문)입니다. 내용이 다르면 영문 원본이 기준입니다.
+> 원본은 [README.md](README.md)(영문)입니다.
 
-새 앱을 시작할 때마다 쓰는, 비어 있지만 실제로 동작하는 프로젝트입니다. 자동화가 모두 들어 있습니다:
-Cloudflare Workers Static Assets(새 Cloudflare Pages)의 React + MUI 프론트엔드, Cloudflare Python Workers + D1의 Django API, Help 도우미
-(유저 가이드 기반 RAG), 자연어 로그 검색과 모니터링 대시보드, UX flow 기반 유닛 + E2E 테스트, 커버리지
-페이지, 그리고 `main`에 통과한 push를 자동 배포하는 CI/CD.
-
-작업 방법: [AGENTS.ko.md](AGENTS.ko.md) (영문 원본 [AGENTS.md](AGENTS.md)).
-
-## BookFinder (이 프로젝트)
-
-2026-10-12에 이 템플릿으로 만들었고, `poc_samples.zip`(UX flow, E2E 카탈로그, 자연어 검색 가이드, RAG PoC)을 따랐습니다.
+**자연어로 질문**하면("2015년 이후 20달러 미만 별점 4점 이상 한국 소설") 조건에 정확히 맞는 책을 찾아 주고,
+서비스 사용법은 자체 유저 가이드를 바탕으로 **Help 도우미**(RAG)가 알려 주는 도서 검색 서비스예요. 모든 것이
+Cloudflare(Workers, D1, Vectorize, Workers AI) 위에서 돌고, 영어·스페인어·프랑스어·한국어를 지원해요.
 
 | | |
 |---|---|
-| 앱 | https://bookfinder.kookastudios.workers.dev |
-| API | https://bookfinder-api.kookastudios.workers.dev/api/health |
-| 커버리지 | https://bookfinder.kookastudios.workers.dev/coverage |
-| 데이터 | 생성한 책 10,000권 (`backend/src/books/seed.py`, 결정적. 실제 제목 몇 개를 기준점으로 쓰고, 가격과 재고는 모두 가상) |
-| 테스트 | E2E 시나리오 114개 (core 43개, 커버리지 100%), 백엔드 + 프론트엔드 유닛 테스트 |
+| 서비스 | https://bookfinder.kookastudios.workers.dev |
+| API 상태 | https://bookfinder-api.kookastudios.workers.dev/api/health |
+| 테스트 커버리지 | https://bookfinder.kookastudios.workers.dev/coverage |
+| UX flow | https://bookfinder.kookastudios.workers.dev/ux-flows/ |
 
-템플릿 위에 더한 프로젝트 결정:
-
-| 주제 | 결정 | 이유 |
-|---|---|---|
-| 챗봇 | 명세의 "Ask the librarian"을 **Help** 도우미로 변경: 유저 가이드만 근거로 하는 RAG, 짧은 답변 + 링크 | 사용자 결정: 챗봇은 서비스 사용법만 안내하고, 책 데이터는 Vectorize에 넣지 않음 |
-| 삭제한 시나리오 | `DET-007`(이 책에 대해 질문), `CHAT-008`(책 문맥 칩), `CHAT-010`(추천 책), `GRD-004`(오래된 가격), `SAFE-003`(책 설명 속 지시문) | 카탈로그 챗봇에서만 의미가 있음 |
-| 바꾼 시나리오 | `CHAT-002` 토큰 스트리밍 없음(답이 한 번에 나오고 `CHAT-006` Stop은 요청 취소), `CHAT-007` 후속 질문은 이전 질문을 검색에 함께 사용, `GRD-005` 한국어 답변은 배포 사이트에서 확인(`@real`) | Python Workers + Workers AI는 응답을 한 번에 돌려주고, stub은 번역을 못 함 |
-| 데이터 모델 | 넓은 `Book` 테이블 하나. 저자 / 장르 / 형식은 조인 테이블 대신 `\|a\|b\|` 토큰 텍스트 | D1 무료 플랜의 하루 쓰기 10만 행에 맞춰 설계(시드에 약 5.1만 사용). 빠르고 단순해서 Paid에서도 유지 |
-| 읽기 예산 | 검색 한 번에 D1 행을 최대 약 2만 개 읽음 (전체 수 + 패싯 개수 한 번, 현재 페이지 한 번) | Paid 플랜의 월 읽기 250억 행으로 월 약 125만 번 검색 |
-| 자연어 안전장치 | D1에는 Postgres 읽기 전용 트랜잭션 / statement timeout이 없음. ORM `filter()`만 쓰고, 필터를 두 번 검증하고, 느리면 "Search took too long" 표시 | D1에는 `SET LOCAL`이 없음 |
-| 요청 제한 | `/api/nl-search/translate`와 `/api/rag/answers`에 클라이언트당 분당 10회 (429 + Retry-After), `RequestLog`로 계산 | 다른 서비스 없이 Worker isolate끼리 공유. 로컬 E2E에서는 끔(`RATE_LIMITS=0`) |
-| 시드 | CD 단계 `scripts/seed_d1.sh`가 `books_book`이 비어 있을 때만 한 번 책을 넣음 | 반복 쓰기 방지 |
-| 다국어 | 메뉴, 화면, 유저 가이드, Help, 자연어 해석 설명, 장르·형식·언어 이름, 생성된 책 설명을 영어·스페인어·프랑스어·한국어로 제공. 우상단 **표시 언어** 선택(기기별 저장, 처음에는 브라우저 언어) | 사용자 요청(2026-10-12). 책 제목, 저자 이름, 개발자용 리포트는 번역하지 않음 |
-| 언어별 Help | 언어마다 유저 가이드를 따로 인덱싱(`<lang>/<page>#n`). 검색은 UI 언어만 쓰고, 프롬프트에 답변 언어를 명시 | 링크가 사용자가 읽는 언어의 가이드를 열도록 |
+> **이 저장소에서 일하는 AI 에이전트와 LLM은 무엇이든 바꾸기 전에 반드시 [AGENTS.md](AGENTS.md)를 읽어야 해요**
+> (한국어: [AGENTS.ko.md](AGENTS.ko.md)). 반드시 따라야 하는 작업 프로세스예요. 기능 단위로 작업하고, 변경할 때마다
+> UX flow, E2E 시나리오, E2E 테스트, 유닛 테스트, 유저 가이드(4개 언어), 검증을 함께 진행해요. Claude Code는 `CLAUDE.md`로
+> 자동으로 읽고, Stop hook과 CI가 지키는지 검사해요. 결정 사항·설정·운영은 [docs/project/DECISIONS.ko.md](docs/project/DECISIONS.ko.md)에 있어요.
 
 ---
 
-## 1. 새 프로젝트 시작하기 (약 5분)
+## 왜 만들었나
 
-```bash
-~/Dev/fullstack-template/scripts/new-project.sh my-app "My App"
+BookFinder는 2026-10-12에 1시간짜리 "AI로 웹앱 만들기" 라이브 인터뷰의 기준 프로젝트로 만들었어요. 명세 패키지
+(`poc_samples.zip`: UX flow, E2E 시나리오 카탈로그, 자연어 검색 설계, RAG 프로토타입)를 바탕으로 했고, 세 가지를 보여 줘요.
+
+1. **처음부터 안전하게 설계한 AI 기능.** LLM은 SQL을 쓰지 않고 답을 지어내지 않아요. 자연어는 검증된 필터가 되고,
+   Help 도우미는 링크로 확인할 수 있는 문서에서만 답해요.
+2. **서버리스 스택 위의 완전한 제품.** 프론트엔드, API, 데이터베이스, 벡터 검색, LLM이 모두 Cloudflare 계정 하나에서 돌고,
+   테스트를 통과한 push마다 CI/CD가 배포해요.
+3. **AI와 함께 일하는 개발 방법.** 기능마다 UX flow, E2E 시나리오와 테스트, 유닛 테스트, 사용자 문서가 함께 움직이고,
+   에이전트가 따르고 CI가 확인하는 규칙([AGENTS.md](AGENTS.md))으로 맞춰져요. 같은 구성을 템플릿
+   [cd-jung/fullstack-template](https://github.com/cd-jung/fullstack-template)에서 다시 쓸 수 있어요.
+
+## 기능
+
+| 기능 | 동작 방식 |
+|---|---|
+| 키워드·필터 검색 | 생성한 책 1만 권(결정적). 제목·저자·ISBN·출판사·설명 키워드 검색, 장르·저자·연도·언어·형식·재고·평점·가격 필터, 칩, 정렬, 페이지, 격자/목록, URL 상태 |
+| 자연어 검색 (AI) | 질문 → LLM → JSON 필터 → 허용 목록으로 검증 → Django ORM 쿼리. "해석 결과"에 모든 조건을 보여 주고, "필터로 편집"으로 필터 패널에 옮겨요 |
+| 책 정보 | 형식별 가격과 재고, 비슷한 책, ISBN·링크 복사, 딥 링크 |
+| Help 도우미 (RAG) | "어떻게 해요?" 질문에 유저 가이드만으로, 사용자의 언어로, 정확한 섹션 링크와 함께 답해요 |
+| 유저 가이드 | 4개 언어로 7페이지. 같은 Markdown 파일이 앱 안의 가이드이자 **RAG 원본**이에요 |
+| 로그 및 모니터링 | 모든 API 요청을 기록. 대시보드(요청 수, 5xx 비율, p95, 4xx, 시간별)와 자연어 로그 검색 |
+| 커버리지 | 유닛 테스트 커버리지, E2E 시나리오 커버리지, UX flow 그래프를 앱 안에서 보여 줘요 |
+| 다국어 | English, Español, Français, 한국어로 UI 문구, 유저 가이드, Help, "해석 결과", 카탈로그 값을 제공 |
+
+## 아키텍처
+
+```mermaid
+flowchart LR
+  user(["브라우저"])
+  subgraph edge["Cloudflare 엣지 (DDoS 방어, TLS)"]
+    fe["프론트엔드 Worker<br/>Static Assets: React + MUI 앱,<br/>/reports/coverage.html, /ux-flows/<br/>보안 헤더 (_headers)"]
+    api["API Worker<br/>Python Workers(Pyodide) 위의 Django<br/>책, 자연어 검색, Help RAG, 로그"]
+    rl["Rate Limiting 바인딩<br/>API_LIMITER 분당 120, AI_LIMITER 분당 10"]
+  end
+  d1[("D1 (SQLite)<br/>책, 저자, 요청 로그,<br/>가이드 조각, 피드백, AI 사용량")]
+  ai["Workers AI<br/>Llama 3.3 70B (자연어 필터, 답변)<br/>bge-m3 (임베딩)"]
+  vz[("Vectorize<br/>유저 가이드 임베딩<br/>(en, es, fr, ko)")]
+  wl["Workers Logs<br/>(stdout, wrangler tail)"]
+  gh["GitHub Actions CI/CD"]
+
+  user -->|"페이지, 정적 파일"| fe
+  user -->|"fetch /api/... ?lang="| api
+  api --> rl
+  api -->|"Django ORM (django-cf)"| d1
+  api -->|"생성 / 임베딩"| ai
+  api -->|"벡터 검색"| vz
+  api --> wl
+  gh -->|"wrangler deploy"| fe
+  gh -->|"pywrangler deploy"| api
+  gh -->|"마이그레이션, 한 번만 시드"| d1
+  gh -->|"유저 가이드 인덱싱"| vz
 ```
 
-이 명령은 템플릿으로 private GitHub 저장소 `cd-jung/my-app`을 만들고, Cloudflare D1 데이터베이스,
-Vectorize 인덱스를 만들고, `project.config.json`을 채우고, macOS 키체인에서
-`CLOUDFLARE_API_TOKEN` 시크릿을 설정한 뒤 push합니다. push하면 CI/CD가 테스트하고 배포합니다.
-
-| 항목 | URL |
-|---|---|
-| 앱 | `https://my-app.kookastudios.workers.dev` |
-| API | `https://my-app-api.kookastudios.workers.dev/api/health` |
-| 커버리지 | `https://my-app.kookastudios.workers.dev/coverage` |
-| UX flow | `https://my-app.kookastudios.workers.dev/ux-flows/` |
-
-그다음 새 폴더를 Claude Code로 열고 `/feature <설명>`으로 기능을 만듭니다.
-GitHub 저장소를 public으로 만들려면 `--public`을 붙입니다.
-
-### 1시간 인터뷰 진행 순서
-
-| 시간 | 단계 |
-|---|---|
-| 0-5분 | `new-project.sh` 실행, Claude Code로 폴더 열기, `gh run watch`로 첫 배포 확인 |
-| 5-10분 | 면접관과 기능 목록 합의, 첫 기능의 UX flow + 시나리오 |
-| 10-50분 | 기능마다 `/feature` 한 번, 로컬에서 `npm run verify`, 기능마다 push (CI가 배포) |
-| 50-60분 | 실제 앱, `/coverage`, 로그 대시보드, Help 도우미 시연, AGENTS.md 설명 |
-
----
-
-## 2. 새 Mac에서 한 번만 하는 설정
-
-이 컴퓨터에서는 이미 끝났습니다(2026-10-12). 다른 컴퓨터에서만 반복하세요.
-
-1. 관리자 권한 없이 `~/.local`에 설치한 도구(공식 릴리스, 체크섬 확인):
-   Node.js 24.21.0, GitHub CLI 2.102.0, uv 0.13.0, wrangler 4.149.0 (`npm install -g wrangler`).
-   `~/.zshrc`에 `export PATH="$HOME/.local/bin:$PATH"`가 있습니다. `jq`는 macOS에 기본으로 있습니다.
-2. 로그인: `gh auth login`, `wrangler login` (이 Mac의 브라우저에서 승인).
-3. GitHub Actions용 **Cloudflare API 토큰** (CI는 브라우저 로그인을 쓸 수 없습니다):
-   Cloudflare 대시보드 -> My Profile -> API Tokens -> Create Token -> Custom token, 권한:
-   - Account: Workers Scripts **Edit**, D1 **Edit**, Vectorize **Edit**, Workers AI **Read**, Account Settings **Read**
-   - User: User Details **Read**, Memberships **Read**
-
-   키체인에 한 번 저장합니다(토큰은 직접 입력하고, 화면에 보이거나 파일에 저장되지 않습니다):
-   ```bash
-   security add-generic-password -a "$USER" -s cloudflare-api-token -w
-   ```
-4. 이 템플릿은 GitHub 템플릿 저장소여야 합니다(`gh repo edit cd-jung/fullstack-template --template`).
-
----
-
-## 3. 결정 사항 (그리고 이유)
-
-2026-10-12 계획 세션에서 정한 내용입니다. 의도할 때만 바꾸세요. AGENTS.md 1장은 에이전트가 이것을 바꾸기 전에 묻도록 합니다.
-
-### 호스팅과 런타임
-
-| 결정 | 선택 | 검토한 대안 | 이유 |
-|---|---|---|---|
-| 클라우드 | Cloudflare (Workers, Static Assets, D1, Vectorize, Workers AI) | - | 계정 하나, 무료 한도, 서버 없음, 몇 초 만에 배포 |
-| 프론트엔드 호스팅 | **Workers Static Assets** (별도 Worker, `frontend/wrangler.jsonc`) | R2 버킷 + 도메인, 구버전 Pages | 원래 Pages로 계획. 2026-10-12에 wrangler 4.149가 Pages를 "Workers에 통합된 최신 Cloudflare Pages"로 넘겨서 사용자가 Static Assets를 선택. SPA fallback, CDN, 정적 요청 무료·무제한. R2만 쓰면 규칙을 직접 만들어야 함. R2는 사용자 파일용 |
-| 백엔드 | **Python Workers 위의 Django** (`django-cf`로 WSGI) | Python Workers 위의 FastAPI, Hono + Drizzle (TypeScript), **Cloudflare Containers**의 Django | Django를 의도적으로 유지. Containers는 Workers Paid(월 $5)와 Docker 필요. FastAPI는 D1 ORM이 없음. CPU 한도가 문제되면 Hono + Drizzle로 전환 |
-| 컨테이너 | **사용 안 함** | Cloudflare Containers | Workers는 컨테이너가 아니라 V8 isolate에서 실행(Python은 Pyodide) |
-| 요금제 | **Workers Paid** (월 $5) | Workers Free | 처음엔 Free(사용자 결정). 2026-10-12에 일반 사용 중 Cloudflare error 1102(CPU 한도)가 나서 사용자가 업그레이드. Paid는 요청당 CPU 30초(최대 5분), 월 3,000만 CPU ms 포함 |
-
-**CPU 참고 (2026-10-12 측정):** Python Workers 위의 Django는 **요청당 CPU 50-64ms**를 씁니다(콜드 스타트 약 2초).
-무료 플랜 한도는 10ms라서, 처음엔 동작했지만 Cloudflare가 error 1102로 요청을 거부하기 시작했습니다.
-그래서 이 템플릿은 이제 **Workers Paid**를 전제로 합니다. 무료로 쓰려면 API를 Hono + Drizzle로 옮기세요.
-
-### 데이터
-
-| 결정 | 선택 | 이유 |
+| 구성 요소 | Cloudflare 서비스 | 구현 |
 |---|---|---|
-| 데이터베이스 | Django ORM으로 쓰는 **D1** (`django_cf.db.backends.d1`) | Django용 Cloudflare 공식 방식, 무료 5GB |
-| 감수한 제약 | 트랜잭션 없음, SQLite 문법 | 이 범위에서는 문제없음 |
-| 선택하지 않음 | Durable Objects SQLite(더 복잡), Hyperdrive + Postgres(Django `psycopg`의 Pyodide 동작 미확인) | 시간 제한이 있는 개발에서 위험 |
-| 마이그레이션 | Django 마이그레이션을 `backend/d1_migrations/*.sql`로 내보내고, CD에서 `wrangler d1 migrations apply`로 적용 | D1에는 `manage.py migrate`를 돌릴 셸이 없음 |
-| 서비스 데이터 | D1에만 저장 (예: 1만 건) | 서비스 데이터는 벡터 DB에 넣지 **않음** |
+| 프론트엔드 | **Workers Static Assets** | React + TypeScript + Vite, MUI 컴포넌트, react-router, react-i18next. 정적 파일만 있어서 요청이 무료이고 코드가 돌지 않아요 |
+| API | **Python Workers** | `django-cf`로 Pyodide 위에서 도는 Django(WSGI). 앱: `books`(카탈로그), `nlsearch`(자연어 → 필터 → ORM), `rag`(Help), `logs`(요청 로그, 대시보드), `core`(LLM 게이트웨이, 제한, CORS) |
+| 데이터베이스 | **D1** | SQLite 위의 Django ORM. 넓은 `books_book` 테이블 하나(다중 값은 `\|a\|b\|` 토큰, D1 쓰기 한도를 고려), 요청 로그, 언어별 가이드 조각 |
+| LLM | **Workers AI** `@cf/meta/llama-3.3-70b-instruct-fp8-fast` | 질문을 필터로 바꾸고 Help 요약을 써요. temperature 0, API 키 없이 바인딩으로 호출 |
+| 임베딩 | **Workers AI** `@cf/baai/bge-m3` | 유저 가이드와 질문을 다국어 1,024차원 벡터로 |
+| 벡터 DB | **Vectorize** | 4개 언어 유저 가이드 섹션 전체의 코사인 인덱스 |
+| 남용 방지 | **Rate Limiting 바인딩** | DB 작업 전에 엣지에서 IP별 제한 |
+| 배포 | GitHub Actions + `wrangler` | 린트 → 유닛 → 정합성 → E2E → 빌드, 그다음 D1 마이그레이션, 시드, 배포, 가이드 인덱싱, 스모크·실제 모델 테스트 |
 
-### AI 기능
+모든 LLM·임베딩·벡터 호출은 모듈 하나(`backend/src/core/llm.py`)를 거치고, 모드는 세 가지예요: `real`(Workers AI),
+`stub`(CI와 E2E용 결정적 픽스처), `down`(장애 테스트).
 
-| 결정 | 선택 | 이유 |
-|---|---|---|
-| LLM | Workers AI `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, temperature 0 | API 키 불필요, 하루 10,000 Neurons 무료 |
-| 임베딩 | Workers AI `@cf/baai/bge-m3` (1,024차원, 다국어) | 한국어와 영어 질문 |
-| 벡터 DB | **Vectorize** | 네이티브 바인딩, 저장 500만 차원 무료(약 4,800개 조각) |
-| RAG 원본 | **유저 가이드만** (`docs/user-guide/*.md`) | 도우미는 서비스 사용법만 안내 |
-| RAG 답변 | 짧은 요약 + 해당 가이드 섹션 링크 | 전체 내용은 유저 가이드 메뉴에서 읽음 |
-| 자연어 검색 | LLM -> JSON 필터 -> 허용 목록 카탈로그로 검증 -> Django ORM | `poc_samples` 자연어 검색 설계를 이식: text-to-SQL 없음, 값 바인딩, 두 번 검증 |
-| PoC와 다른 점 (D1) | `SET LOCAL transaction_read_only` / `statement_timeout` 없음(Postgres 전용) | 자연어 쿼리는 구조상 읽기 전용(ORM `filter()`만 사용), 쿼리 시간은 D1이 제한 |
-| 테스트 모드 | `LLM_MODE` = `real` / `stub` / `down` | CI와 E2E가 결정적이고 AI 호출이 필요 없음 |
+## 자연어 검색: 질문 → 검증된 필터 → ORM
 
-### 로그와 모니터링
+LLM은 데이터베이스 사용자가 아니라 **작은 JSON 필터 언어로 옮기는 번역기**로만 써요. 설계는 명세의
+`nl-search-implementation` 가이드에서 왔어요.
 
-- 모든 API 요청은 **Cloudflare Workers Logs**(대시보드: Workers -> API worker -> Observability,
-  또는 `backend/`에서 `npx wrangler tail`)와 D1 `RequestLog` 테이블에 남습니다.
-- **Logs & Monitoring** 페이지는 이 테이블을 읽습니다: 대시보드(요청 수, 5xx 오류율, p95 지연 시간,
-  4xx 수, 시간별 요청 수)와 자연어(같은 자연어 -> ORM 엔진) 또는 키워드 로그 검색.
+```mermaid
+sequenceDiagram
+  participant U as 사용자
+  participant FE as 프론트엔드
+  participant API as API Worker (Django)
+  participant LLM as Workers AI (Llama 3.3)
+  participant DB as D1
 
-### UI
-
-- 모든 컴포넌트는 **MUI**. 라이트/다크 모드는 OS 설정을 따릅니다.
-- 왼쪽 메뉴: **Home**(프로젝트의 주요 기능), **User Guide**, **Logs & Monitoring**, **Coverage**.
-- 모든 페이지에 떠 있는 **Help** 버튼이 RAG 도우미를 엽니다.
-
-### 방법론과 자동화
-
-- **기능 단위**로 작업합니다. 기능마다 코드, 유닛 테스트, UX flow, E2E 시나리오, E2E 테스트, 유저 가이드를
-  함께 갱신합니다([AGENTS.ko.md](AGENTS.ko.md)).
-- 강제 장치: `AGENTS.md`(모든 에이전트가 읽음), `scripts/check-consistency.mjs --hook`을 실행하는
-  Claude Code **Stop hook**, `/feature` 스킬, 그리고 CI에서 같은 검사를 `--strict`로 실행.
-- UX flow, 시나리오 카탈로그, 커버리지 리포트는 `poc_samples` E2E PoC 형식을 따릅니다.
-- 문서는 영문으로 쓰고 한국어 번역본(`*.ko.md`)을 둡니다.
-
-### CI/CD
-
-| 단계 | 실행 내용 |
-|---|---|
-| verify (모든 push와 PR) | 린트 -> 커버리지 포함 유닛 테스트 -> 정합성 검사 `--strict` -> E2E (Playwright, LLM stub) -> 사이트 빌드 |
-| deploy (`main`만, verify 통과 후) | D1 마이그레이션 -> Worker 배포(`pywrangler deploy`) -> 유저 가이드 재인덱싱(바뀐 섹션만) -> 프론트엔드 배포(`wrangler deploy --config frontend/wrangler.jsonc`) -> 스모크 테스트 |
-
-Cloudflare Git 연동 대신 Actions에서 배포합니다. 그래서 모든 검사를 통과해야만 배포됩니다.
-커버리지 페이지는 배포할 때마다 다시 만들어집니다.
-
-### 저장소
-
-- 새 프로젝트는 `~/Dev/<name>`에 두고, GitHub 저장소는 기본으로 **private**입니다.
-
----
-
-## 4. 비용 (Workers Paid, 월 $5)
-
-| 서비스 | 무료 한도 | 템플릿 사용량 |
-|---|---|---|
-| Workers | Paid: 월 요청 1,000만 번, CPU 3,000만 ms 포함, 요청당 CPU 30초 | Django 요청당 CPU 약 60ms: 월 약 50만 요청 |
-| D1 | 하루 읽기 500만 행, 쓰기 10만 행, 5GB | 요청당 로그 1행 |
-| Vectorize | 월 조회 3,000만 차원, 저장 500만 차원 | 가이드 섹션당 약 1,024차원 |
-| Workers AI | 하루 10,000 Neurons | bge-m3 100만 토큰당 약 1,075 Neurons, Llama 70B 하루 출력 약 4.8만 토큰 |
-| Static Assets | 정적 요청 무료·무제한 | - |
-
-표의 다른 행은 무료 한도입니다. Paid에서는 D1 월 읽기 250억 행·쓰기 5,000만 행, Vectorize 조회 5,000만·저장 1,000만 차원으로 늘어납니다.
-
----
-
-## 5. 로컬 개발
-
-```bash
-npm run setup      # 한 번만
-npm run dev        # http://localhost:5173 (API는 :8000, SQLite, LLM stub)
-npm run verify     # CI가 돌리는 것
+  U->>FE: "2015년 이후 20달러 미만 별점 4점 이상 한국 소설"
+  FE->>API: POST /api/nl-search/translate {question, lang}
+  API->>API: 제한 (IP별 엣지, 클라이언트별 분당 10회, 하루 AI 예산)
+  API->>LLM: 프롬프트 = 규칙 + 허용 목록 카탈로그 + 예시 + 마커 안의 질문
+  LLM-->>API: {"and":[{"field":"language","op":"eq","value":"Korean"}, ...]}
+  API->>API: 검증: 아는 필드·연산자·템플릿, 타입 맞는 값, 깊이 4, 조건 15개
+  API-->>FE: {filter, UI 언어로 된 설명}
+  FE->>FE: "해석 결과: (언어: 한국어 그리고 장르: 문학 그리고 ...)" 표시
+  FE->>API: GET /api/books?nl_filter=...&in_stock=1&lang=ko
+  API->>API: 필터를 다시 검증 (URL은 신뢰하지 않음)
+  API->>DB: SELECT ... WHERE <ORM 조건, 바인딩 파라미터>
+  DB-->>API: 일치하는 책
+  API-->>FE: 결과 한 페이지 + 패싯 개수
 ```
 
-`LLM_MODE=real`은 Cloudflare에서만 동작합니다(Workers AI와 Vectorize 바인딩). 로컬 stub은 카탈로그 예시와
-유저 가이드 키워드 검색으로 답합니다.
+- **카탈로그가 유일한 기준** (`backend/src/books/catalog.py`): 검색 가능한 필드마다 타입, 연산자, ORM 경로, 4개 언어 라벨이
+  있어요. 추가 로직이 필요한 조건은 서버 쪽 **템플릿**(수상작, 시리즈 도서, 신간, 저자 수, 비슷한 책)으로 처리해요. 프롬프트,
+  검증기, "해석 결과" 문장, stub 픽스처가 모두 여기서 만들어져요.
+- **안전장치:** 필드 이름과 ORM 경로는 카탈로그에서만 오고, 값은 바인딩 파라미터예요. 필터는 해석할 때 **그리고** 목록을
+  요청할 때마다 검증하고, 쿼리는 SELECT만 해요. 카탈로그로 표현할 수 없는 질문은 추측 대신 "다르게 질문해 주세요"(422)로 답해요.
+- **설명 가능:** "해석 결과"는 필터에서 1:1로 만들어서 사용자가 조건을 하나하나 확인할 수 있고, "필터로 편집"으로 일반 필터로 바꿀 수 있어요.
 
-## 6. 알려진 한계
+## Help 도우미: 유저 가이드 기반 RAG
 
-- Python Workers 콜드 스타트는 약 2-3초라서, 한동안 요청이 없다가 오는 첫 요청이 느립니다.
-- 요청당 CPU가 무료 한도를 넘습니다(3장 참고).
-- E2E는 배포된 사이트가 아니라 로컬 스택에서 돕니다. 배포 job은 스모크 테스트를 돌립니다.
-- Help 도우미는 서버에 대화 기억이 없어서, 질문마다 따로 답합니다.
-- Workers에서는 보안 때문에 시계가 I/O 중에만 흘러서, 로그의 `duration_ms`는 D1 / AI 호출을 기다린 시간입니다.
-  순수 CPU 작업은 0ms로 보입니다.
+도우미는 "BookFinder를 어떻게 써요?"라는 질문에만, 유저 가이드로만 답하고, 답의 출처를 항상 보여 줘요. 책 데이터는 일부러
+벡터 인덱스에 넣지 **않았어요**.
+
+```mermaid
+flowchart TB
+  subgraph Indexing["인덱싱 (CD, 배포할 때마다)"]
+    direction LR
+    md["docs/user-guide/{en,es,fr,ko}/*.md"] --> chunk["제목 기준으로 나누기<br/>(약 350토큰, 50 겹침)<br/>id = lang/page#n, anchor = 제목 slug"]
+    chunk --> changed{"내용 해시가 바뀌었나?"}
+    changed -->|"예"| embed["bge-m3 임베딩<br/>(Workers AI REST)"]
+    embed --> vec[("Vectorize")]
+    changed -->|"예"| rows[("D1 rag_guidechunk<br/>본문, 섹션, 앵커, 언어")]
+    changed -->|"삭제됨"| delete["양쪽에서 삭제"]
+  end
+
+  subgraph Answering["답변 (API, 질문마다)"]
+    direction LR
+    q["질문 + UI 언어<br/>(+ 이전 질문)"] --> qe["bge-m3 질문 임베딩"]
+    qe --> search["Vectorize 상위 20개"]
+    search --> keep["UI 언어 조각 중<br/>유사도 0.5 이상만 (상위 5개)"]
+    keep -->|"없음"| fixed["UI 언어의 고정 답변<br/>(LLM 호출 안 함)"]
+    keep -->|"있음"| prompt["문맥 전용 프롬프트:<br/>섹션 + 마커 안의 질문 +<br/>'한국어로 답하세요' 등"]
+    prompt --> llm["Llama 3.3: 2~5문장 요약"]
+    llm --> clean["본문에서 URL·id 제거"]
+    clean --> out["답변 + 조각으로 만든 링크:<br/>/guide/page#section"]
+  end
+```
+
+- **근거 기반:** 기준을 넘는 섹션이 없으면 LLM을 부르지 않고 사용자 언어로 "사용자 가이드에서 찾지 못했어요"라고 답해요.
+  링크는 모델 출력이 아니라 검색된 조각으로 서버가 만들어서, 모든 링크가 실제 섹션을 열어요.
+- **다국어:** 언어마다 가이드를 따로 인덱싱하고, 검색은 UI 언어만 쓰고, 프롬프트에 답변 언어를 적어요. 그러지 않으면
+  Llama가 영어 섹션을 따라 영어로 답하는데, 이 문제는 배포 후 `@real` 테스트가 찾아서 고쳤어요.
+- **대화:** 후속 질문은 이전 질문과 함께 검색해요. 대화 기록은 브라우저(sessionStorage)에만 있고, 서버에는 선택적인 좋아요/싫어요 피드백만 남아요.
+- **하나의 원본:** 같은 Markdown 파일이 앱 안의 유저 가이드이자 RAG 원본이고, CD가 바뀐 섹션만 다시 인덱싱해서 문서와 답변이 어긋나지 않아요.
+
+## 안전, 비용, 보안
+
+| 걱정 | 보호 장치 |
+|---|---|
+| 트래픽 폭주 / DDoS | Cloudflare 엣지 DDoS 방어, 정적 파일은 무료, IP별 엣지 제한(분당 API 120회, AI 10회)으로 D1 작업 전에 거절 |
+| AI 비용 | 클라이언트별 분당 10회, **하루 AI 예산**(`AI_DAILY_LIMIT` = 하루 실제 호출 500회), 출력 토큰 상한, LLM을 부르지 않는 고정 답변 |
+| 연산·저장 | 요청당 `limits.cpu_ms` 5,000, 요청 본문 64KB, 14일 지난 로그 삭제, 시드는 한 번만 |
+| 프롬프트 인젝션 | 사용자 문장은 마커 안에, 문맥 전용 프롬프트, 카탈로그 허용 목록, 서버가 만드는 링크 |
+| 웹 | 사이트에 CSP와 보안 헤더, API에 `nosniff`·`X-Frame-Options`, 앱 출처만 허용하는 CORS, HTML 없이 렌더링하는 Markdown |
+| 시크릿과 개인정보 | 계정 없음, 로그에는 솔트를 넣은 IP 해시만, `DJANGO_SECRET_KEY`는 CD가 설정하는 Worker 시크릿, 배포는 범위를 제한한 GitHub 시크릿 사용 |
+
+세부 사항, 측정값, 권장 대시보드 설정(결제 알림, 로그 페이지용 Cloudflare Access, GitHub secret scanning)은
+[docs/project/DECISIONS.ko.md](docs/project/DECISIONS.ko.md#비용-안전장치와-보안)에 있어요.
+
+## 품질: 기능을 만들고 확인하는 방법
+
+```mermaid
+flowchart LR
+  flow["UX flow<br/>ux-flows/*.md"] --> scen["E2E 시나리오<br/>e2e/scenarios/catalog.json"]
+  scen --> code["코드 + 유닛 테스트<br/>(pytest, Vitest)"]
+  code --> e2e["E2E 테스트<br/>Playwright, [ID] 태그"]
+  e2e --> guide["유저 가이드<br/>4개 언어"]
+  guide --> verify["npm run verify<br/>+ Stop hook + CI --strict"]
+  verify --> deploy["CD 배포 +<br/>실제 사이트 @real 확인"]
+```
+
+E2E 시나리오 121개(core 46개)가 모두 테스트로 덮여 있고, push마다 백엔드 유닛 테스트 135개와 프론트엔드 80개가 돌아요.
+커버리지 페이지는 시나리오마다 그 시나리오가 확인하는 UX flow 노드를 연결해 보여 줘요.
+
+## 로컬에서 실행하기
+
+```bash
+npm run setup
+```
+
+```bash
+npm run dev
+```
+
+http://localhost:5173에서 열리고, API는 :8000에서 돌아요(SQLite, 시드된 책 1만 권, LLM stub). `npm run verify`는 CI가
+돌리는 것을 모두 실행해요. 요구 사항과 Cloudflare·GitHub 최초 설정은 [docs/project/DECISIONS.ko.md](docs/project/DECISIONS.ko.md)에 있어요.
+
+## 저장소 구조
+
+| 경로 | 내용 |
+|---|---|
+| [AGENTS.md](AGENTS.md) | **에이전트와 개발자가 반드시 따르는 작업 프로세스** (한국어: AGENTS.ko.md) |
+| `backend/` | Python Workers 위의 Django API, 테스트, D1 마이그레이션, CD 스크립트 |
+| `frontend/` | React + MUI 앱, 다국어 사전, 유닛 테스트 |
+| `docs/user-guide/<lang>/` | 유저 가이드 페이지 = RAG 원본 |
+| `ux-flows/` | Mermaid UX flow와 뷰어 |
+| `e2e/` | 시나리오 카탈로그, Playwright 테스트, 커버리지 리포트 |
+| `docs/project/` | 결정 사항, 설정, 운영, 비용 |
+| `.github/workflows/ci.yml` | CI/CD |

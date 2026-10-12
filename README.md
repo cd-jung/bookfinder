@@ -1,203 +1,227 @@
-# Full-stack Cloudflare Template
+# BookFinder
 
-A blank, working project that every new app starts from. It already has the full automation:
-React + MUI frontend on Cloudflare Workers Static Assets (the new Cloudflare Pages), Django API on Cloudflare Python Workers with D1, a Help
-assistant (RAG over the User Guide), natural language log search with a monitoring dashboard,
-unit + E2E tests driven by UX flows, a coverage page, and CI/CD that deploys every green push to `main`.
-
-Korean version: [README.ko.md](README.ko.md). Working method for agents and developers: [AGENTS.md](AGENTS.md).
-
-## BookFinder (this project)
-
-Built from this template on 2026-10-12, following `poc_samples.zip` (UX flows, E2E catalog, NL search guide, RAG PoC).
+A book search service where you can **ask in plain language** ("Korean novels after 2015 under $20 with 4+
+stars") and get exactly the matching books, plus a **Help assistant** that explains how to use the service
+from its own User Guide (RAG). It runs entirely on Cloudflare (Workers, D1, Vectorize, Workers AI), in English,
+Spanish, French and Korean.
 
 | | |
 |---|---|
-| App | https://bookfinder.kookastudios.workers.dev |
-| API | https://bookfinder-api.kookastudios.workers.dev/api/health |
-| Coverage | https://bookfinder.kookastudios.workers.dev/coverage |
-| Data | 10,000 generated books (`backend/src/books/seed.py`, deterministic; a few real titles as anchors, all prices/stock fictional) |
-| Tests | 114 E2E scenarios (43 core, 100% covered), backend + frontend unit tests |
+| Live app | https://bookfinder.kookastudios.workers.dev |
+| API health | https://bookfinder-api.kookastudios.workers.dev/api/health |
+| Test coverage | https://bookfinder.kookastudios.workers.dev/coverage |
+| UX flows | https://bookfinder.kookastudios.workers.dev/ux-flows/ |
+| Korean README | [README.ko.md](README.ko.md) |
 
-Project decisions on top of the template:
-
-| Topic | Decision | Why |
-|---|---|---|
-| Chatbot | The spec's "Ask the librarian" became the **Help** assistant: RAG over the User Guide only, short answer + links | User decision: the chatbot explains how to use the service; book data stays out of Vectorize |
-| Removed scenarios | `DET-007` (ask about this book), `CHAT-008` (book context chip), `CHAT-010` (recommended books), `GRD-004` (stale prices), `SAFE-003` (instructions in book descriptions) | They only make sense for a catalogue chatbot |
-| Changed scenarios | `CHAT-002` no token streaming (answer appears whole; `CHAT-006` Stop cancels the request), `CHAT-007` follow-up = previous question added to retrieval, `GRD-005` Korean answers checked on the deployed site (`@real`) | Python Workers + Workers AI answer in one response; the stub cannot translate |
-| Data model | One wide `Book` table; authors / genres / formats as `\|a\|b\|` token text instead of join tables | Designed for the D1 free plan's 100k rows written/day (seeding uses about 51k); kept on Paid because it is fast and simple |
-| Read budget | Each search reads up to ~20k D1 rows (one pass for total + facet counts, one for the page) | About 1.25M searches/month within the Paid plan's 25B rows read |
-| NL guard rails | No Postgres read-only transaction / statement timeout on D1; queries are ORM `filter()` only, the filter is validated twice, and a slow response shows "Search took too long" | D1 has no `SET LOCAL` |
-| Rate limits | 10 questions/minute per client on `/api/nl-search/translate` and `/api/rag/answers` (429 with Retry-After), counted in `RequestLog` | Shared across Worker isolates without another service; off in local E2E (`RATE_LIMITS=0`) |
-| Seeding | CD step `scripts/seed_d1.sh` loads the books once, only while `books_book` is empty | Avoids repeated writes |
-| Languages | English, Spanish, French and Korean for menus, pages, User Guide, Help, NL descriptions, genre / format / language names and generated book descriptions; **Display language** select top right (saved per device, browser language first) | User request (2026-10-12). Titles, author names and developer reports stay untranslated |
-| Help per language | Each language's User Guide is indexed separately (`<lang>/<page>#n`); retrieval keeps the UI language and the prompt names the answer language | Links open the guide in the language the user reads |
+> **For AI agents and LLMs working on this repository: before changing anything, you must read
+> [AGENTS.md](AGENTS.md)** (Korean: [AGENTS.ko.md](AGENTS.ko.md)). It is the mandatory work process: feature
+> units, and for every change the UX flow, E2E scenarios, E2E tests, unit tests, User Guide (all four
+> languages) and verification. Claude Code loads it automatically through `CLAUDE.md`; a Stop hook and CI enforce it.
+> Decisions, setup and operations are recorded in [docs/project/DECISIONS.md](docs/project/DECISIONS.md).
 
 ---
 
-## 1. Start a new project (about 5 minutes)
+## Why this project exists
 
-```bash
-~/Dev/fullstack-template/scripts/new-project.sh my-app "My App"
+BookFinder was built on 2026-10-12 as the reference project for a one-hour live "build a web app with AI"
+interview, from a spec package (`poc_samples.zip`: UX flows, an E2E scenario catalogue, a natural language
+search design and a RAG prototype). It shows three things:
+
+1. **AI features that are safe by design.** The LLM never writes SQL and never invents answers: natural
+   language becomes a validated filter, and the Help assistant answers only from documentation it can link to.
+2. **A full product on a serverless stack.** Frontend, API, database, vector search and LLM all run on one
+   Cloudflare account, deployed by CI/CD on every green push.
+3. **An AI-assisted engineering method.** Every feature carries its UX flow, E2E scenarios and tests, unit
+   tests and user documentation, kept in sync by rules ([AGENTS.md](AGENTS.md)) that agents follow and CI checks.
+   The same setup is reusable from the template [cd-jung/fullstack-template](https://github.com/cd-jung/fullstack-template).
+
+## What it does
+
+| Feature | How it works |
+|---|---|
+| Keyword & filter search | 10,000 books (generated, deterministic). Keyword over title / author / ISBN / publisher / description; filters for genre, author, year, language, format, stock, rating, price; chips, sort, paging, grid / list, URL state |
+| Natural language search (AI) | Question → LLM → JSON filter → validated against an allow-list → Django ORM query. "Interpreted as" shows every condition; "Edit as filters" moves them into the filter panel |
+| Book details | Formats with price and stock, similar books, copy ISBN / link, deep links |
+| Help assistant (RAG) | Answers "how do I ...?" from the User Guide only, in the user's language, with links to the exact section |
+| User Guide | 7 pages in 4 languages; the same Markdown files are the in-app guide **and** the RAG corpus |
+| Logs & Monitoring | Every API request is logged; dashboard (requests, 5xx rate, p95, 4xx, per hour) and log search in plain language |
+| Coverage | Unit test coverage, E2E scenario coverage and the UX flow graph, shown inside the app |
+| Languages | English, Español, Français, 한국어 for all UI text, the User Guide, Help, "Interpreted as" and catalogue values |
+
+## Architecture
+
+```mermaid
+flowchart LR
+  user(["Browser"])
+  subgraph edge["Cloudflare edge (DDoS protection, TLS)"]
+    fe["Frontend Worker<br/>Static Assets: React + MUI app,<br/>/reports/coverage.html, /ux-flows/<br/>security headers (_headers)"]
+    api["API Worker<br/>Django on Python Workers (Pyodide)<br/>books, NL search, Help RAG, logs"]
+    rl["Rate Limiting bindings<br/>API_LIMITER 120/min, AI_LIMITER 10/min"]
+  end
+  d1[("D1 (SQLite)<br/>books, authors, request logs,<br/>guide chunks, feedback, AI usage")]
+  ai["Workers AI<br/>Llama 3.3 70B (NL filter, answers)<br/>bge-m3 (embeddings)"]
+  vz[("Vectorize<br/>User Guide embeddings<br/>(en, es, fr, ko)")]
+  wl["Workers Logs<br/>(stdout, wrangler tail)"]
+  gh["GitHub Actions CI/CD"]
+
+  user -->|"pages, assets"| fe
+  user -->|"fetch /api/... ?lang="| api
+  api --> rl
+  api -->|"Django ORM (django-cf)"| d1
+  api -->|"generate / embed"| ai
+  api -->|"vector query"| vz
+  api --> wl
+  gh -->|"wrangler deploy"| fe
+  gh -->|"pywrangler deploy"| api
+  gh -->|"migrations, seed once"| d1
+  gh -->|"index User Guide"| vz
 ```
 
-This creates the private GitHub repo `cd-jung/my-app` from this template, the Cloudflare D1 database
-and Vectorize index, writes `project.config.json`, sets the `CLOUDFLARE_API_TOKEN`
-secret from the macOS Keychain, and pushes. The push runs CI/CD, which tests and deploys:
-
-| What | URL |
-|---|---|
-| App | `https://my-app.kookastudios.workers.dev` |
-| API | `https://my-app-api.kookastudios.workers.dev/api/health` |
-| Coverage | `https://my-app.kookastudios.workers.dev/coverage` |
-| UX flows | `https://my-app.kookastudios.workers.dev/ux-flows/` |
-
-Then open the new folder in Claude Code and build features with `/feature <description>`.
-Add `--public` to make the GitHub repo public.
-
-### 1-hour interview runbook
-
-| Time | Step |
-|---|---|
-| 0-5 min | `new-project.sh`, open the folder in Claude Code, `gh run watch` the first deploy |
-| 5-10 min | Agree the feature list with the interviewer; first feature's UX flow + scenarios |
-| 10-50 min | One `/feature` per capability; `npm run verify` locally; push after each feature (CI deploys) |
-| 50-60 min | Show the live app, `/coverage`, the Logs dashboard and the Help assistant; walk through AGENTS.md |
-
----
-
-## 2. One-time setup on a new Mac
-
-Already done on this machine (2026-10-12). Repeat only on another computer.
-
-1. Tools without admin rights, in `~/.local` (official releases, checksums verified):
-   Node.js 24.21.0, GitHub CLI 2.102.0, uv 0.13.0, wrangler 4.149.0 (`npm install -g wrangler`).
-   `~/.zshrc` has `export PATH="$HOME/.local/bin:$PATH"`. `jq` ships with macOS.
-2. Sign in: `gh auth login` and `wrangler login` (browser approval on this Mac).
-3. **Cloudflare API token** for GitHub Actions (CI cannot use your browser login):
-   Cloudflare dashboard -> My Profile -> API Tokens -> Create Token -> Custom token, permissions:
-   - Account: Workers Scripts **Edit**, D1 **Edit**, Vectorize **Edit**, Workers AI **Read**, Account Settings **Read**
-   - User: User Details **Read**, Memberships **Read**
-
-   Store it once in the Keychain (you type the token; it is never shown or written to a file):
-   ```bash
-   security add-generic-password -a "$USER" -s cloudflare-api-token -w
-   ```
-4. This template must be a GitHub template repository (`gh repo edit cd-jung/fullstack-template --template`).
-
----
-
-## 3. Decisions (and why)
-
-Recorded from the planning session on 2026-10-12. Change them only on purpose; AGENTS.md section 1
-tells agents to ask before changing any of these.
-
-### Hosting and runtime
-
-| Decision | Chosen | Alternatives considered | Why |
-|---|---|---|---|
-| Cloud | Cloudflare (Workers, Static Assets, D1, Vectorize, Workers AI) | - | One account, free tier, no servers, deploy in seconds |
-| Frontend hosting | **Workers Static Assets** (own Worker, `frontend/wrangler.jsonc`) | R2 bucket + domain; legacy Pages | Planned as Pages; on 2026-10-12 wrangler 4.149 redirected Pages to "the latest version of Cloudflare Pages, now part of Cloudflare Workers", so the user chose Static Assets. SPA fallback, CDN, free unlimited static requests; R2 alone needs manual rules. R2 is for user files |
-| Backend | **Django on Python Workers** (WSGI via `django-cf`) | FastAPI on Python Workers; Hono + Drizzle (TypeScript); Django in **Cloudflare Containers** | Django kept on purpose. Containers need Workers Paid ($5/month) and Docker. FastAPI has no D1 ORM. Hono + Drizzle is the fallback if CPU limits bite |
-| Containers | **Not used** | Cloudflare Containers | Workers run in V8 isolates (Pyodide for Python), not containers |
-| Plan | **Workers Paid** ($5/month) | Workers Free | Started on Free (user decision); on 2026-10-12 the API hit Cloudflare error 1102 (CPU limit) under normal use, so the user upgraded. Paid allows 30 s CPU per request (up to 5 min) and includes 30M CPU ms/month |
-
-**CPU note (measured 2026-10-12):** Django on Python Workers uses **50-64 ms CPU per request** (~2 s cold
-start). The free plan allows 10 ms: it worked at first, then Cloudflare started rejecting requests with
-error 1102, so this template now assumes **Workers Paid**. To run on Free, move the API to Hono + Drizzle.
-
-### Data
-
-| Decision | Chosen | Why |
+| Part | Cloudflare service | Implementation |
 |---|---|---|
-| Database | **D1** through the Django ORM (`django_cf.db.backends.d1`) | Official Cloudflare path for Django; free 5 GB |
-| Limits accepted | no transactions; SQLite dialect | Fine for this scope |
-| Not chosen | Durable Objects SQLite (more complex), Hyperdrive + Postgres (Django's `psycopg` unverified on Pyodide) | Risk in a timed build |
-| Migrations | Django migrations exported to `backend/d1_migrations/*.sql`, applied by `wrangler d1 migrations apply` in CD | D1 has no shell to run `manage.py migrate` |
-| Service data | Lives in D1 only (for example 10,000 records) | Service data is **not** put in the vector DB |
+| Frontend | **Workers Static Assets** | React + TypeScript + Vite, MUI components, react-router, react-i18next. Static files only, so requests are free and run no code |
+| API | **Python Workers** | Django (WSGI) on Pyodide via `django-cf`. Apps: `books` (catalogue), `nlsearch` (NL → filter → ORM), `rag` (Help), `logs` (request logs, dashboard), `core` (LLM gateway, limits, CORS) |
+| Database | **D1** | Django ORM on SQLite. One wide `books_book` table (multi-valued fields as `\|a\|b\|` tokens, chosen for D1's write budget), request logs, guide chunks per language |
+| LLM | **Workers AI** `@cf/meta/llama-3.3-70b-instruct-fp8-fast` | Translates questions into filters and writes Help summaries, temperature 0, no API keys (binding) |
+| Embeddings | **Workers AI** `@cf/baai/bge-m3` | Multilingual 1,024-dimension vectors for the User Guide and the questions |
+| Vector DB | **Vectorize** | Cosine index of every User Guide section in four languages |
+| Abuse limits | **Rate Limiting bindings** | Per-IP limits at the edge before any database work |
+| Delivery | GitHub Actions + `wrangler` | Lint → unit → consistency → E2E → build, then D1 migrations, seed, deploy, guide indexing, smoke and live-model tests |
 
-### AI features
+All LLM, embedding and vector calls go through one module (`backend/src/core/llm.py`) with three modes: `real`
+(Workers AI), `stub` (deterministic fixtures for CI and E2E) and `down` (failure tests).
 
-| Decision | Chosen | Why |
-|---|---|---|
-| LLM | Workers AI `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, temperature 0 | No API keys; free 10,000 Neurons/day |
-| Embeddings | Workers AI `@cf/baai/bge-m3` (1,024 dims, multilingual) | Korean and English questions |
-| Vector DB | **Vectorize** | Native binding; free 5M stored dimensions (about 4,800 chunks) |
-| RAG corpus | **User Guide only** (`docs/user-guide/*.md`) | The assistant explains how to use the service, nothing else |
-| RAG answer | Short summary + links to the exact guide section | Users read the full section in the User Guide menu |
-| Natural language search | LLM -> JSON filter -> validated against an allow-list catalogue -> Django ORM | Ported from the `poc_samples` NL search design: no text-to-SQL, values bound, validated twice |
-| D1 deviations from the PoC | No `SET LOCAL transaction_read_only` / `statement_timeout` (Postgres only) | NL queries are read-only by construction (ORM `filter()` only); D1 limits query time |
-| Test modes | `LLM_MODE` = `real` / `stub` / `down` | CI and E2E are deterministic and need no AI calls |
+## Natural language search: question → validated filter → ORM
 
-### Logs and monitoring
+The LLM is used as a **translator into a small JSON filter language**, not as a database user. The design comes
+from the spec's `nl-search-implementation` guide.
 
-- Every API request is written to **Cloudflare Workers Logs** (dashboard: Workers -> the API worker ->
-  Observability, or `npx wrangler tail` in `backend/`) and to the D1 `RequestLog` table.
-- The **Logs & Monitoring** page reads the table: dashboard (requests, 5xx error rate, p95 latency,
-  4xx count, requests per hour) and log search in plain language (same NL -> ORM engine) or by keyword.
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant FE as Frontend
+  participant API as API Worker (Django)
+  participant LLM as Workers AI (Llama 3.3)
+  participant DB as D1
 
-### UI
-
-- **MUI** for every component; light and dark mode follow the OS.
-- Left menu: **Home** (the project's main feature), **User Guide**, **Logs & Monitoring**, **Coverage**.
-- Floating **Help** button opens the RAG assistant on every page.
-
-### Method and automation
-
-- Work in **feature units**; each feature updates code, unit tests, UX flow, E2E scenarios, E2E tests
-  and the User Guide together ([AGENTS.md](AGENTS.md)).
-- Enforcement: `AGENTS.md` (read by every agent), a Claude Code **Stop hook** running
-  `scripts/check-consistency.mjs --hook`, the `/feature` skill, and the same check in CI with `--strict`.
-- UX flows, scenario catalog and coverage report follow the `poc_samples` E2E PoC format.
-- Documentation in English with Korean translations (`*.ko.md`).
-
-### CI/CD
-
-| Stage | Runs |
-|---|---|
-| verify (every push and PR) | lint -> unit tests with coverage -> consistency check `--strict` -> E2E (Playwright, LLM stub) -> build site |
-| deploy (`main` only, after verify) | D1 migrations -> Worker deploy (`pywrangler deploy`) -> User Guide re-index (changed sections only) -> frontend deploy (`wrangler deploy --config frontend/wrangler.jsonc`) -> smoke test |
-
-Everything deploys from Actions instead of the Cloudflare Git integration, so nothing deploys
-unless every check passed. The coverage page is rebuilt on every deploy.
-
-### Repositories
-
-- New projects live in `~/Dev/<name>`, GitHub repos are **private** by default.
-
----
-
-## 4. Cost (Workers Paid, $5/month)
-
-| Service | Free allowance | Template usage |
-|---|---|---|
-| Workers | Paid: 10M requests and 30M CPU ms/month included, 30 s CPU/request | ~60 ms CPU per Django request: about 500k requests/month |
-| D1 | 5M rows read/day, 100k rows written/day, 5 GB | one log row per request |
-| Vectorize | 30M queried dims/month, 5M stored dims | ~1,024 dims per guide section |
-| Workers AI | 10,000 Neurons/day | bge-m3 ~1,075 Neurons per 1M tokens; Llama 70B ~48k output tokens/day |
-| Static Assets | static requests free and unlimited | - |
-
-The table's other rows show the free allowances; on Paid they rise to 25B D1 rows read and 50M written per month, 50M Vectorize queried and 10M stored dimensions.
-
----
-
-## 5. Local development
-
-```bash
-npm run setup      # once
-npm run dev        # http://localhost:5173 (API on :8000, SQLite, LLM stub)
-npm run verify     # what CI runs
+  U->>FE: "Korean novels after 2015 under $20 with 4+ stars"
+  FE->>API: POST /api/nl-search/translate {question, lang}
+  API->>API: limits (edge per IP, 10/min per client, daily AI budget)
+  API->>LLM: prompt = rules + allow-listed catalogue + few-shot examples + question in markers
+  LLM-->>API: {"and":[{"field":"language","op":"eq","value":"Korean"}, ...]}
+  API->>API: validate: known fields / operators / templates, typed values, depth 4, 15 conditions
+  API-->>FE: {filter, description in the UI language}
+  FE->>FE: show "Interpreted as: (language is Korean AND genre is literary-fiction AND ...)"
+  FE->>API: GET /api/books?nl_filter=...&in_stock=1&lang=ko
+  API->>API: validate the filter again (the URL is untrusted)
+  API->>DB: SELECT ... WHERE <ORM conditions, bound parameters>
+  DB-->>API: matching books
+  API-->>FE: page of results + facet counts
 ```
 
-`LLM_MODE=real` only works on Cloudflare (Workers AI and Vectorize bindings); locally the stub answers
-from the catalogue examples and a keyword search over the User Guide.
+- **Catalogue as the single source of truth** (`backend/src/books/catalog.py`): each searchable field has a type,
+  operators, an ORM path and labels in four languages; server-side **templates** (award winner, series book, new
+  release, author count, similar to) cover conditions that need extra logic. The prompt, the validator, the
+  "Interpreted as" text and the stub fixtures are all generated from it.
+- **Guard rails:** field names and ORM paths come only from the catalogue, values are bound parameters, the filter
+  is validated on translate **and** on every list request, queries are SELECT-only, and a question the catalogue
+  cannot express gets "please rephrase" (422) instead of a guess.
+- **Explainable:** "Interpreted as" is generated from the filter, 1:1, so users can check every condition, and
+  "Edit as filters" turns it into ordinary filters.
 
-## 6. Known limits
+## Help assistant: RAG over the User Guide
 
-- Python Workers cold start is about 2-3 s; the first request after idle is slow.
-- CPU per request is above the free limit (see section 3).
-- E2E runs against the local stack, not against the deployed site; the deploy job runs a smoke test.
-- The Help assistant has no conversation memory on the server: each question is answered on its own.
-- On Workers the clock only advances during I/O (a Cloudflare security measure), so `duration_ms` in the
-  logs measures time spent waiting on D1 / AI calls; pure CPU work shows as 0 ms.
+The assistant answers only "how do I use BookFinder?" questions, only from the User Guide, and always shows
+where the answer came from. Book data is deliberately **not** in the vector index.
+
+```mermaid
+flowchart TB
+  subgraph Indexing["Indexing (CD, on every deploy)"]
+    direction LR
+    md["docs/user-guide/{en,es,fr,ko}/*.md"] --> chunk["Split by headings<br/>(~350 tokens, 50 overlap)<br/>id = lang/page#n, anchor = heading slug"]
+    chunk --> changed{"content hash changed?"}
+    changed -->|"yes"| embed["bge-m3 embedding<br/>(Workers AI REST)"]
+    embed --> vec[("Vectorize")]
+    changed -->|"yes"| rows[("D1 rag_guidechunk<br/>text, section, anchor, lang")]
+    changed -->|"removed"| delete["delete from both"]
+  end
+
+  subgraph Answering["Answering (API, per question)"]
+    direction LR
+    q["Question + UI language<br/>(+ previous question)"] --> qe["bge-m3 query embedding"]
+    qe --> search["Vectorize top 20"]
+    search --> keep["keep chunks of the UI language<br/>with similarity >= 0.5 (top 5)"]
+    keep -->|"none"| fixed["Fixed reply in the UI language<br/>(LLM not called)"]
+    keep -->|"found"| prompt["Context-only prompt:<br/>sections + question in markers +<br/>'answer in Korean' etc."]
+    prompt --> llm["Llama 3.3: 2-5 sentence summary"]
+    llm --> clean["remove URLs / ids from the text"]
+    clean --> out["Answer + links built from the chunks:<br/>/guide/page#section"]
+  end
+```
+
+- **Grounded:** no relevant section above the threshold → a fixed "I couldn't find that in the User Guide" in
+  the user's language, without calling the LLM. Links are built by the server from retrieved chunks, never parsed
+  from model output, so every link opens a real section.
+- **Multilingual:** each language's guide is indexed separately; retrieval keeps the UI language and the prompt
+  names the answer language (Llama otherwise drifts to the language of the English sections — found by the
+  post-deploy `@real` test and fixed).
+- **Conversation:** follow-up questions are retrieved together with the previous question; history stays in the
+  browser (sessionStorage), nothing is stored on the server except optional thumbs-up / down feedback.
+- **One source of truth:** the same Markdown files are the in-app User Guide and the corpus, and CD re-indexes
+  only changed sections, so documentation and answers cannot drift apart.
+
+## Safety, cost and security
+
+| Concern | Protection |
+|---|---|
+| Floods / DDoS | Cloudflare edge DDoS protection; static assets are free; per-IP edge limits (120 API, 10 AI requests per minute) reject before any D1 work |
+| AI cost | 10 questions/minute per client, **daily AI budget** (`AI_DAILY_LIMIT` = 500 real calls/day), output token caps, fixed replies without LLM calls |
+| Compute / storage | `limits.cpu_ms` 5,000 per request, 64 KB request bodies, logs older than 14 days pruned, seed runs only once |
+| Prompt injection | User text inside markers, context-only prompts, catalogue allow-list, server-built links |
+| Web | CSP and security headers on the site, `nosniff` / `X-Frame-Options` on the API, CORS limited to the app, Markdown rendered without HTML |
+| Secrets & privacy | No accounts; logs keep a salted IP hash; `DJANGO_SECRET_KEY` is a Worker secret set by CD; deploys use a scoped GitHub secret |
+
+Details, measured numbers and the recommended dashboard settings (billing alert, Cloudflare Access for the logs
+page, GitHub secret scanning) are in [docs/project/DECISIONS.md](docs/project/DECISIONS.md#cost-safeguards-and-security).
+
+## Quality: how features are built and checked
+
+```mermaid
+flowchart LR
+  flow["UX flow<br/>ux-flows/*.md"] --> scen["E2E scenarios<br/>e2e/scenarios/catalog.json"]
+  scen --> code["Code + unit tests<br/>(pytest, Vitest)"]
+  code --> e2e["E2E tests<br/>Playwright, [ID] tags"]
+  e2e --> guide["User Guide<br/>4 languages"]
+  guide --> verify["npm run verify<br/>+ Stop hook + CI --strict"]
+  verify --> deploy["CD deploy +<br/>@real checks on the live site"]
+```
+
+121 E2E scenarios (46 core) are all covered by tests; 135 backend and 80 frontend unit tests run on every push.
+The coverage page links every scenario to the UX flow node it tests.
+
+## Run it locally
+
+```bash
+npm run setup
+```
+
+```bash
+npm run dev
+```
+
+The app opens at http://localhost:5173 with the API on :8000 (SQLite, 10,000 seeded books, LLM stub).
+`npm run verify` runs everything CI runs. Requirements and one-time Cloudflare / GitHub setup are in
+[docs/project/DECISIONS.md](docs/project/DECISIONS.md).
+
+## Repository map
+
+| Path | Contents |
+|---|---|
+| [AGENTS.md](AGENTS.md) | **Mandatory work process for agents and developers** (Korean: AGENTS.ko.md) |
+| `backend/` | Django API on Python Workers, tests, D1 migrations, CD scripts |
+| `frontend/` | React + MUI app, i18n dictionaries, unit tests |
+| `docs/user-guide/<lang>/` | User Guide pages = RAG corpus |
+| `ux-flows/` | Mermaid UX flows and viewer |
+| `e2e/` | Scenario catalogue, Playwright tests, coverage report |
+| `docs/project/` | Decisions, setup, operations, cost |
+| `.github/workflows/ci.yml` | CI/CD |

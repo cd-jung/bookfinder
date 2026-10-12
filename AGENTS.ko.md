@@ -4,7 +4,7 @@
 
 이 파일은 이 프로젝트에서 일하는 모든 AI 에이전트와 개발자의 작업 방법입니다. Claude Code는 `CLAUDE.md`를
 통해 이 파일을 읽고, 다른 도구(Codex, Cursor, Copilot, Kiro)는 `AGENTS.md`를 바로 읽습니다.
-아키텍처와 각 결정의 이유는 `README.md`에 있습니다.
+프로젝트 개요와 아키텍처는 `README.md`에, 각 결정과 이유, 설정, 운영은 `docs/project/DECISIONS.md`에 있습니다.
 
 ## 1. 기술 스택 (고정. 바꾸려면 먼저 사용자에게 물어볼 것)
 
@@ -24,7 +24,8 @@
 
 ```
 AGENTS.md / AGENTS.ko.md     이 작업 방법 (영문 / 한국어)
-README.md / README.ko.md     결정 사항, 설정, 새 프로젝트 생성과 인터뷰 진행 순서
+README.md / README.ko.md     프로젝트 개요: 목적, 기능, 아키텍처, 자연어 검색과 RAG 설계
+docs/project/DECISIONS*.md   결정 사항, 설정, 비용, 안전장치, 새 프로젝트 생성과 인터뷰 진행 순서
 project.config.json          이름과 ID. `node scripts/apply-config.mjs`로 반영
 backend/                     Python Workers 위의 Django
   src/config/                설정 (DJANGO_ENV = workers | local | test), urls

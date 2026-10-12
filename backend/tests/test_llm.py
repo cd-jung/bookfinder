@@ -10,6 +10,7 @@ def test_down_mode_blocks_every_call(settings):
             call()
 
 
+@pytest.mark.django_db
 def test_real_mode_without_workers_runtime_is_unavailable(settings):
     settings.LLM_MODE = "real"
     with pytest.raises((llm.LLMUnavailableError, ImportError)):

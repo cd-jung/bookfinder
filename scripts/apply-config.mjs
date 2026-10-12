@@ -30,6 +30,7 @@ edit('backend/wrangler.jsonc', [
   [str('LLM_MODEL'), `$1"${cfg.ai.llmModel}"`],
   [str('RAG_TOP_K'), `$1"${cfg.ai.ragTopK}"`],
   [str('RAG_MINIMUM_SIMILARITY'), `$1"${cfg.ai.ragMinimumSimilarity}"`],
+  [str('ALLOWED_HOSTS'), `$1"${cf.workerName}.${cf.workersSubdomain}.workers.dev"`],
 ]);
 edit('frontend/wrangler.jsonc', [[/("name":\s*)"[^"]*"/, `$1"${cf.frontendWorker}"`]]);
 edit('frontend/src/config.ts', [[/export const APP_NAME = '[^']*';/, `export const APP_NAME = '${cfg.displayName.replace(/'/g, "\\'")}';`]]);

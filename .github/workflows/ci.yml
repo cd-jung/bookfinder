@@ -129,6 +129,11 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ steps.cfg.outputs.account }}
         run: cd backend && uv run pywrangler deploy
 
+      - name: Ensure the Django secret exists (random, never printed)
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.cfg.outputs.account }}
+        run: cd backend && bash scripts/ensure_secret.sh
+
       - name: Index the User Guide into Vectorize
         run: python3 backend/scripts/index_guide.py
 

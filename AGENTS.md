@@ -2,7 +2,8 @@
 
 This file is the working method for every AI agent and developer on this project. Claude Code loads it
 through `CLAUDE.md`; other tools (Codex, Cursor, Copilot, Kiro) read `AGENTS.md` directly.
-The Korean translation is `AGENTS.ko.md`. Architecture and the reasons behind each decision are in `README.md`.
+The Korean translation is `AGENTS.ko.md`. The project overview and architecture are in `README.md`; every decision with its reason, setup and
+operations are in `docs/project/DECISIONS.md`.
 
 ## 1. Stack (fixed; do not change without asking the user)
 
@@ -22,7 +23,8 @@ The Korean translation is `AGENTS.ko.md`. Architecture and the reasons behind ea
 
 ```
 AGENTS.md / AGENTS.ko.md     this method (English / Korean)
-README.md / README.ko.md     decisions, setup, new-project and interview runbook
+README.md / README.ko.md     project overview: purpose, features, architecture, NL search and RAG design
+docs/project/DECISIONS*.md   decisions, setup, cost, safeguards, new-project and interview runbook
 project.config.json          names and ids; apply with `node scripts/apply-config.mjs`
 backend/                     Django on Python Workers
   src/config/                settings (DJANGO_ENV = workers | local | test), urls
