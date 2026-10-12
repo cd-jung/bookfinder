@@ -97,7 +97,10 @@ test.describe('Logs & Monitoring', () => {
     await expect(gauge.getByText(/^(OK|Watch|Critical)$/)).toBeVisible();
     await expect(page.getByTestId('gauge-aiBudget')).toBeVisible();
   });
+});
 
+// Runs on the deployed site only: no local log traffic is needed (and no local API exists there).
+test.describe('Logs & Monitoring access', () => {
   test('[LOGS-010] @real admin API answers 403 without a Cloudflare Access sign-in', async ({ request }) => {
     const admin = process.env.ADMIN_URL;
     test.skip(!admin, 'ADMIN_URL is not set');
