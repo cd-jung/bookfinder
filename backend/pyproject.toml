@@ -1,5 +1,5 @@
 [project]
-name = "app-backend"
+name = "bookfinder-backend"
 version = "0.1.0"
 description = "Django API running on Cloudflare Python Workers"
 requires-python = ">=3.13"

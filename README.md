@@ -1,7 +1,7 @@
 # Full-stack Cloudflare Template
 
 A blank, working project that every new app starts from. It already has the full automation:
-React + MUI frontend on Cloudflare Pages, Django API on Cloudflare Python Workers with D1, a Help
+React + MUI frontend on Cloudflare Workers Static Assets (the new Cloudflare Pages), Django API on Cloudflare Python Workers with D1, a Help
 assistant (RAG over the User Guide), natural language log search with a monitoring dashboard,
 unit + E2E tests driven by UX flows, a coverage page, and CI/CD that deploys every green push to `main`.
 
@@ -15,16 +15,16 @@ Korean version: [README.ko.md](README.ko.md). Working method for agents and deve
 ~/Dev/fullstack-template/scripts/new-project.sh my-app "My App"
 ```
 
-This creates the private GitHub repo `cd-jung/my-app` from this template, the Cloudflare D1 database,
-Vectorize index and Pages project, writes `project.config.json`, sets the `CLOUDFLARE_API_TOKEN`
+This creates the private GitHub repo `cd-jung/my-app` from this template, the Cloudflare D1 database
+and Vectorize index, writes `project.config.json`, sets the `CLOUDFLARE_API_TOKEN`
 secret from the macOS Keychain, and pushes. The push runs CI/CD, which tests and deploys:
 
 | What | URL |
 |---|---|
-| App | `https://my-app.pages.dev` |
+| App | `https://my-app.kookastudios.workers.dev` |
 | API | `https://my-app-api.kookastudios.workers.dev/api/health` |
-| Coverage | `https://my-app.pages.dev/coverage/` |
-| UX flows | `https://my-app.pages.dev/ux-flows/` |
+| Coverage | `https://my-app.kookastudios.workers.dev/coverage/` |
+| UX flows | `https://my-app.kookastudios.workers.dev/ux-flows/` |
 
 Then open the new folder in Claude Code and build features with `/feature <description>`.
 Add `--public` to make the GitHub repo public.
@@ -50,7 +50,7 @@ Already done on this machine (2026-10-12). Repeat only on another computer.
 2. Sign in: `gh auth login` and `wrangler login` (browser approval on this Mac).
 3. **Cloudflare API token** for GitHub Actions (CI cannot use your browser login):
    Cloudflare dashboard -> My Profile -> API Tokens -> Create Token -> Custom token, permissions:
-   - Account: Workers Scripts **Edit**, D1 **Edit**, Vectorize **Edit**, Workers AI **Read**, Cloudflare Pages **Edit**, Account Settings **Read**
+   - Account: Workers Scripts **Edit**, D1 **Edit**, Vectorize **Edit**, Workers AI **Read**, Account Settings **Read**
    - User: User Details **Read**, Memberships **Read**
 
    Store it once in the Keychain (you type the token; it is never shown or written to a file):
@@ -70,8 +70,8 @@ tells agents to ask before changing any of these.
 
 | Decision | Chosen | Alternatives considered | Why |
 |---|---|---|---|
-| Cloud | Cloudflare (Pages, Workers, D1, Vectorize, Workers AI) | - | One account, free tier, no servers, deploy in seconds |
-| Frontend hosting | **Pages** | R2 bucket + domain | Pages gives SPA fallback, CDN, preview URLs and custom domains; R2 alone needs manual rules and uploads. R2 is for user files |
+| Cloud | Cloudflare (Workers, Static Assets, D1, Vectorize, Workers AI) | - | One account, free tier, no servers, deploy in seconds |
+| Frontend hosting | **Workers Static Assets** (own Worker, `frontend/wrangler.jsonc`) | R2 bucket + domain; legacy Pages | Planned as Pages; on 2026-10-12 wrangler 4.149 redirected Pages to "the latest version of Cloudflare Pages, now part of Cloudflare Workers", so the user chose Static Assets. SPA fallback, CDN, free unlimited static requests; R2 alone needs manual rules. R2 is for user files |
 | Backend | **Django on Python Workers** (WSGI via `django-cf`) | FastAPI on Python Workers; Hono + Drizzle (TypeScript); Django in **Cloudflare Containers** | Django kept on purpose. Containers need Workers Paid ($5/month) and Docker. FastAPI has no D1 ORM. Hono + Drizzle is the fallback if CPU limits bite |
 | Containers | **Not used** | Cloudflare Containers | Workers run in V8 isolates (Pyodide for Python), not containers |
 | Plan | **Workers Free** | Workers Paid $5/month | User decision: stay free. See the CPU note below |
@@ -131,10 +131,10 @@ plan's 10 ms limit. Cloudflare tolerated it at low traffic. If requests start fa
 | Stage | Runs |
 |---|---|
 | verify (every push and PR) | lint -> unit tests with coverage -> consistency check `--strict` -> E2E (Playwright, LLM stub) -> build site |
-| deploy (`main` only, after verify) | D1 migrations -> Worker deploy (`pywrangler deploy`) -> User Guide re-index (changed sections only) -> Pages deploy -> smoke test |
+| deploy (`main` only, after verify) | D1 migrations -> Worker deploy (`pywrangler deploy`) -> User Guide re-index (changed sections only) -> frontend deploy (`wrangler deploy --config frontend/wrangler.jsonc`) -> smoke test |
 
-Pages is deployed from Actions (`wrangler pages deploy`) instead of the Pages Git integration, so
-nothing deploys unless every check passed. The coverage page is rebuilt on every deploy.
+Everything deploys from Actions instead of the Cloudflare Git integration, so nothing deploys
+unless every check passed. The coverage page is rebuilt on every deploy.
 
 ### Repositories
 
@@ -150,7 +150,7 @@ nothing deploys unless every check passed. The coverage page is rebuilt on every
 | D1 | 5M rows read/day, 100k rows written/day, 5 GB | one log row per request |
 | Vectorize | 30M queried dims/month, 5M stored dims | ~1,024 dims per guide section |
 | Workers AI | 10,000 Neurons/day | bge-m3 ~1,075 Neurons per 1M tokens; Llama 70B ~48k output tokens/day |
-| Pages | static hosting free | - |
+| Static Assets | static requests free and unlimited | - |
 
 Paid plan, if ever needed: $5/month (includes 10M requests, 30M CPU ms, 25B D1 reads, 50M Vectorize queried dims).
 

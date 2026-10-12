@@ -3,7 +3,7 @@
 > 원본은 `README.md`(영문)입니다. 내용이 다르면 영문 원본이 기준입니다.
 
 새 앱을 시작할 때마다 쓰는, 비어 있지만 실제로 동작하는 프로젝트입니다. 자동화가 모두 들어 있습니다:
-Cloudflare Pages의 React + MUI 프론트엔드, Cloudflare Python Workers + D1의 Django API, Help 도우미
+Cloudflare Workers Static Assets(새 Cloudflare Pages)의 React + MUI 프론트엔드, Cloudflare Python Workers + D1의 Django API, Help 도우미
 (유저 가이드 기반 RAG), 자연어 로그 검색과 모니터링 대시보드, UX flow 기반 유닛 + E2E 테스트, 커버리지
 페이지, 그리고 `main`에 통과한 push를 자동 배포하는 CI/CD.
 
@@ -18,15 +18,15 @@ Cloudflare Pages의 React + MUI 프론트엔드, Cloudflare Python Workers + D1�
 ```
 
 이 명령은 템플릿으로 private GitHub 저장소 `cd-jung/my-app`을 만들고, Cloudflare D1 데이터베이스,
-Vectorize 인덱스, Pages 프로젝트를 만들고, `project.config.json`을 채우고, macOS 키체인에서
+Vectorize 인덱스를 만들고, `project.config.json`을 채우고, macOS 키체인에서
 `CLOUDFLARE_API_TOKEN` 시크릿을 설정한 뒤 push합니다. push하면 CI/CD가 테스트하고 배포합니다.
 
 | 항목 | URL |
 |---|---|
-| 앱 | `https://my-app.pages.dev` |
+| 앱 | `https://my-app.kookastudios.workers.dev` |
 | API | `https://my-app-api.kookastudios.workers.dev/api/health` |
-| 커버리지 | `https://my-app.pages.dev/coverage/` |
-| UX flow | `https://my-app.pages.dev/ux-flows/` |
+| 커버리지 | `https://my-app.kookastudios.workers.dev/coverage/` |
+| UX flow | `https://my-app.kookastudios.workers.dev/ux-flows/` |
 
 그다음 새 폴더를 Claude Code로 열고 `/feature <설명>`으로 기능을 만듭니다.
 GitHub 저장소를 public으로 만들려면 `--public`을 붙입니다.
@@ -52,7 +52,7 @@ GitHub 저장소를 public으로 만들려면 `--public`을 붙입니다.
 2. 로그인: `gh auth login`, `wrangler login` (이 Mac의 브라우저에서 승인).
 3. GitHub Actions용 **Cloudflare API 토큰** (CI는 브라우저 로그인을 쓸 수 없습니다):
    Cloudflare 대시보드 -> My Profile -> API Tokens -> Create Token -> Custom token, 권한:
-   - Account: Workers Scripts **Edit**, D1 **Edit**, Vectorize **Edit**, Workers AI **Read**, Cloudflare Pages **Edit**, Account Settings **Read**
+   - Account: Workers Scripts **Edit**, D1 **Edit**, Vectorize **Edit**, Workers AI **Read**, Account Settings **Read**
    - User: User Details **Read**, Memberships **Read**
 
    키체인에 한 번 저장합니다(토큰은 직접 입력하고, 화면에 보이거나 파일에 저장되지 않습니다):
@@ -71,8 +71,8 @@ GitHub 저장소를 public으로 만들려면 `--public`을 붙입니다.
 
 | 결정 | 선택 | 검토한 대안 | 이유 |
 |---|---|---|---|
-| 클라우드 | Cloudflare (Pages, Workers, D1, Vectorize, Workers AI) | - | 계정 하나, 무료 한도, 서버 없음, 몇 초 만에 배포 |
-| 프론트엔드 호스팅 | **Pages** | R2 버킷 + 도메인 | Pages는 SPA fallback, CDN, 미리보기 URL, 커스텀 도메인을 제공. R2만 쓰면 규칙과 업로드를 직접 해야 함. R2는 사용자 파일용 |
+| 클라우드 | Cloudflare (Workers, Static Assets, D1, Vectorize, Workers AI) | - | 계정 하나, 무료 한도, 서버 없음, 몇 초 만에 배포 |
+| 프론트엔드 호스팅 | **Workers Static Assets** (별도 Worker, `frontend/wrangler.jsonc`) | R2 버킷 + 도메인, 구버전 Pages | 원래 Pages로 계획. 2026-10-12에 wrangler 4.149가 Pages를 "Workers에 통합된 최신 Cloudflare Pages"로 넘겨서 사용자가 Static Assets를 선택. SPA fallback, CDN, 정적 요청 무료·무제한. R2만 쓰면 규칙을 직접 만들어야 함. R2는 사용자 파일용 |
 | 백엔드 | **Python Workers 위의 Django** (`django-cf`로 WSGI) | Python Workers 위의 FastAPI, Hono + Drizzle (TypeScript), **Cloudflare Containers**의 Django | Django를 의도적으로 유지. Containers는 Workers Paid(월 $5)와 Docker 필요. FastAPI는 D1 ORM이 없음. CPU 한도가 문제되면 Hono + Drizzle로 전환 |
 | 컨테이너 | **사용 안 함** | Cloudflare Containers | Workers는 컨테이너가 아니라 V8 isolate에서 실행(Python은 Pyodide) |
 | 요금제 | **Workers Free** | Workers Paid 월 $5 | 사용자 결정: 무료 유지. 아래 CPU 참고 |
@@ -132,9 +132,9 @@ GitHub 저장소를 public으로 만들려면 `--public`을 붙입니다.
 | 단계 | 실행 내용 |
 |---|---|
 | verify (모든 push와 PR) | 린트 -> 커버리지 포함 유닛 테스트 -> 정합성 검사 `--strict` -> E2E (Playwright, LLM stub) -> 사이트 빌드 |
-| deploy (`main`만, verify 통과 후) | D1 마이그레이션 -> Worker 배포(`pywrangler deploy`) -> 유저 가이드 재인덱싱(바뀐 섹션만) -> Pages 배포 -> 스모크 테스트 |
+| deploy (`main`만, verify 통과 후) | D1 마이그레이션 -> Worker 배포(`pywrangler deploy`) -> 유저 가이드 재인덱싱(바뀐 섹션만) -> 프론트엔드 배포(`wrangler deploy --config frontend/wrangler.jsonc`) -> 스모크 테스트 |
 
-Pages Git 연동 대신 Actions에서 `wrangler pages deploy`로 배포합니다. 그래서 모든 검사를 통과해야만 배포됩니다.
+Cloudflare Git 연동 대신 Actions에서 배포합니다. 그래서 모든 검사를 통과해야만 배포됩니다.
 커버리지 페이지는 배포할 때마다 다시 만들어집니다.
 
 ### 저장소
@@ -151,7 +151,7 @@ Pages Git 연동 대신 Actions에서 `wrangler pages deploy`로 배포합니다
 | D1 | 하루 읽기 500만 행, 쓰기 10만 행, 5GB | 요청당 로그 1행 |
 | Vectorize | 월 조회 3,000만 차원, 저장 500만 차원 | 가이드 섹션당 약 1,024차원 |
 | Workers AI | 하루 10,000 Neurons | bge-m3 100만 토큰당 약 1,075 Neurons, Llama 70B 하루 출력 약 4.8만 토큰 |
-| Pages | 정적 호스팅 무료 | - |
+| Static Assets | 정적 요청 무료·무제한 | - |
 
 유료 플랜이 필요하면: 월 $5 (요청 1,000만 번, CPU 3,000만 ms, D1 읽기 250억 행, Vectorize 조회 5,000만 차원 포함).
 

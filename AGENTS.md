@@ -8,7 +8,7 @@ The Korean translation is `AGENTS.ko.md`. Architecture and the reasons behind ea
 
 | Layer | Choice |
 |---|---|
-| Frontend | React + TypeScript + Vite, **MUI** for every UI component, react-router, served by **Cloudflare Pages** |
+| Frontend | React + TypeScript + Vite, **MUI** for every UI component, react-router, served by **Workers Static Assets** (`frontend/wrangler.jsonc`) |
 | Backend | **Django** (WSGI) on **Cloudflare Python Workers** (Pyodide), via `django-cf` |
 | Database | **Cloudflare D1** (SQLite) through the Django ORM; no transactions |
 | RAG | User Guide Markdown -> **Workers AI** embeddings (`@cf/baai/bge-m3`) -> **Vectorize**; text in D1 |

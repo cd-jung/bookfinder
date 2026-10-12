@@ -25,12 +25,13 @@ edit('backend/wrangler.jsonc', [
   [str('database_id'), `$1"${cf.d1Id}"`],
   [str('index_name'), `$1"${cf.vectorizeIndex}"`],
   [str('APP_NAME'), `$1"${cfg.displayName}"`],
-  [str('ALLOWED_ORIGINS'), `$1"https://${cf.pagesProject}.pages.dev${cfg.customDomain ? `,https://${cfg.customDomain}` : ''}"`],
+  [str('ALLOWED_ORIGINS'), `$1"https://${cf.frontendWorker}.${cf.workersSubdomain}.workers.dev${cfg.customDomain ? `,https://${cfg.customDomain}` : ''}"`],
   [str('EMBEDDING_MODEL'), `$1"${cfg.ai.embeddingModel}"`],
   [str('LLM_MODEL'), `$1"${cfg.ai.llmModel}"`],
   [str('RAG_TOP_K'), `$1"${cfg.ai.ragTopK}"`],
   [str('RAG_MINIMUM_SIMILARITY'), `$1"${cfg.ai.ragMinimumSimilarity}"`],
 ]);
+edit('frontend/wrangler.jsonc', [[/("name":\s*)"[^"]*"/, `$1"${cf.frontendWorker}"`]]);
 edit('frontend/src/config.ts', [[/export const APP_NAME = '[^']*';/, `export const APP_NAME = '${cfg.displayName.replace(/'/g, "\\'")}';`]]);
 edit('frontend/index.html', [[/<title>[^<]*<\/title>/, `<title>${cfg.displayName}</title>`]]);
 edit('backend/pyproject.toml', [[/^name = "[^"]*"/m, `name = "${cfg.name}-backend"`]]);

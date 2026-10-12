@@ -1,15 +1,15 @@
 {
-  "name": "my-app",
-  "displayName": "My App",
+  "name": "bookfinder",
+  "displayName": "BookFinder",
   "githubOwner": "cd-jung",
   "cloudflare": {
     "accountId": "7d13fa412be4360e16b68ba93dbec736",
     "workersSubdomain": "kookastudios",
-    "workerName": "my-app-api",
-    "pagesProject": "my-app",
-    "d1Name": "my-app-db",
-    "d1Id": "00000000-0000-0000-0000-000000000000",
-    "vectorizeIndex": "my-app-guide"
+    "workerName": "bookfinder-api",
+    "frontendWorker": "bookfinder",
+    "d1Name": "bookfinder-db",
+    "d1Id": "fa48c598-9df2-4165-b998-d8f2a0249c82",
+    "vectorizeIndex": "bookfinder-guide"
   },
   "ai": {
     "embeddingModel": "@cf/baai/bge-m3",

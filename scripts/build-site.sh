@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build what Pages serves: the React app plus the coverage report (/coverage/) and the UX flow viewer (/ux-flows/).
+# Build what the frontend Worker serves (Workers Static Assets): the React app plus the coverage report (/coverage/) and the UX flow viewer (/ux-flows/).
 # Requires unit test outputs in coverage/ (npm run test:unit) for the unit panel.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

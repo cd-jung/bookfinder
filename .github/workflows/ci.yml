@@ -108,7 +108,7 @@ jobs:
             echo "account=$(jq -r '.cloudflare.accountId' project.config.json)"
             echo "worker=$(jq -r '.cloudflare.workerName' project.config.json)"
             echo "subdomain=$(jq -r '.cloudflare.workersSubdomain' project.config.json)"
-            echo "pages=$(jq -r '.cloudflare.pagesProject' project.config.json)"
+            echo "frontend=$(jq -r '.cloudflare.frontendWorker' project.config.json)"
           } >> "$GITHUB_OUTPUT"
 
       - name: Install backend tooling
@@ -130,12 +130,12 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: site
-          path: site
+          path: frontend/dist
 
-      - name: Deploy frontend to Pages
+      - name: Deploy frontend (Workers Static Assets)
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ steps.cfg.outputs.account }}
-        run: cd backend && npx wrangler pages deploy ../site --project-name "${{ steps.cfg.outputs.pages }}" --branch main --commit-dirty=true
+        run: npx --prefix backend wrangler deploy --config frontend/wrangler.jsonc
 
       - name: Smoke test
         run: |
@@ -145,6 +145,8 @@ jobs:
             sleep 10
           done
           curl -fsS "$API/api/health"
-          curl -fsS -o /dev/null "https://${{ steps.cfg.outputs.pages }}.pages.dev/"
-          curl -fsS -o /dev/null "https://${{ steps.cfg.outputs.pages }}.pages.dev/coverage/"
-          echo "Deployed: https://${{ steps.cfg.outputs.pages }}.pages.dev  API: $API"
+          APP="https://${{ steps.cfg.outputs.frontend }}.${{ steps.cfg.outputs.subdomain }}.workers.dev"
+          curl -fsS -o /dev/null "$APP/"
+          curl -fsS -o /dev/null "$APP/logs"
+          curl -fsS -o /dev/null "$APP/coverage/"
+          echo "Deployed: $APP  API: $API"

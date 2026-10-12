@@ -24,16 +24,19 @@ def test_response_carries_request_id(client):
 
 
 def test_cors_allows_configured_origin_and_previews(client, settings):
-    settings.ALLOWED_ORIGINS = ["https://my-app.pages.dev"]
-    assert client.get("/api/health", HTTP_ORIGIN="https://my-app.pages.dev")["Access-Control-Allow-Origin"]
-    preview = client.get("/api/health", HTTP_ORIGIN="https://abc123.my-app.pages.dev")
-    assert preview["Access-Control-Allow-Origin"] == "https://abc123.my-app.pages.dev"
+    settings.ALLOWED_ORIGINS = ["https://my-app.acct.workers.dev"]
+    assert client.get("/api/health", HTTP_ORIGIN="https://my-app.acct.workers.dev")["Access-Control-Allow-Origin"]
+    preview = client.get("/api/health", HTTP_ORIGIN="https://abc123-my-app.acct.workers.dev")
+    assert preview["Access-Control-Allow-Origin"] == "https://abc123-my-app.acct.workers.dev"
     other = client.get("/api/health", HTTP_ORIGIN="https://evil.example")
+    assert "Access-Control-Allow-Origin" not in client.get(
+        "/api/health", HTTP_ORIGIN="https://evilmy-app.acct.workers.dev"
+    )
     assert "Access-Control-Allow-Origin" not in other
 
 
 def test_preflight_returns_204_with_cors_headers(client, settings):
-    settings.ALLOWED_ORIGINS = ["https://my-app.pages.dev"]
-    response = client.options("/api/rag/answers", HTTP_ORIGIN="https://my-app.pages.dev")
+    settings.ALLOWED_ORIGINS = ["https://my-app.acct.workers.dev"]
+    response = client.options("/api/rag/answers", HTTP_ORIGIN="https://my-app.acct.workers.dev")
     assert response.status_code == 204
     assert response["Access-Control-Allow-Methods"] == "GET, POST, OPTIONS"

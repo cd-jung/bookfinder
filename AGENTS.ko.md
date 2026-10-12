@@ -10,7 +10,7 @@
 
 | 계층 | 선택 |
 |---|---|
-| 프론트엔드 | React + TypeScript + Vite, 모든 UI 컴포넌트는 **MUI**, react-router, **Cloudflare Pages**에서 서비스 |
+| 프론트엔드 | React + TypeScript + Vite, 모든 UI 컴포넌트는 **MUI**, react-router, **Workers Static Assets**(`frontend/wrangler.jsonc`)에서 서비스 |
 | 백엔드 | **Cloudflare Python Workers**(Pyodide) 위의 **Django**(WSGI), `django-cf` 사용 |
 | 데이터베이스 | Django ORM으로 쓰는 **Cloudflare D1**(SQLite), 트랜잭션 없음 |
 | RAG | 유저 가이드 Markdown -> **Workers AI** 임베딩(`@cf/baai/bge-m3`) -> **Vectorize**, 본문은 D1 |

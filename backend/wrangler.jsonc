@@ -1,26 +1,26 @@
 {
 	// Values marked "from project.config.json" are rewritten by scripts/apply-config.mjs.
-	"name": "my-app-api", // from project.config.json
+	"name": "bookfinder-api", // from project.config.json
 	"main": "src/entry.py",
 	"compatibility_date": "2026-07-29",
 	"compatibility_flags": ["python_workers"],
 	"d1_databases": [
 		{
 			"binding": "DB",
-			"database_name": "my-app-db", // from project.config.json
-			"database_id": "00000000-0000-0000-0000-000000000000", // from project.config.json
+			"database_name": "bookfinder-db", // from project.config.json
+			"database_id": "fa48c598-9df2-4165-b998-d8f2a0249c82", // from project.config.json
 			"migrations_dir": "d1_migrations"
 		}
 	],
 	"ai": { "binding": "AI" },
 	"vectorize": [
-		{ "binding": "VECTORIZE", "index_name": "my-app-guide" } // from project.config.json
+		{ "binding": "VECTORIZE", "index_name": "bookfinder-guide" } // from project.config.json
 	],
 	"vars": {
 		"DJANGO_ENV": "workers",
 		"LLM_MODE": "real",
-		"APP_NAME": "My App", // from project.config.json
-		"ALLOWED_ORIGINS": "https://my-app.pages.dev", // from project.config.json
+		"APP_NAME": "BookFinder", // from project.config.json
+		"ALLOWED_ORIGINS": "https://bookfinder.kookastudios.workers.dev", // from project.config.json
 		"EMBEDDING_MODEL": "@cf/baai/bge-m3", // from project.config.json
 		"LLM_MODEL": "@cf/meta/llama-3.3-70b-instruct-fp8-fast", // from project.config.json
 		"RAG_TOP_K": "5", // from project.config.json

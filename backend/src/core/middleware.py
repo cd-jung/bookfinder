@@ -8,7 +8,7 @@ from django.http import HttpResponse
 
 
 class CorsMiddleware:
-    """Allow the Pages frontend (a different origin) to call the API."""
+    """Allow the frontend (a different origin: its own Worker) to call the API."""
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -30,9 +30,12 @@ class CorsMiddleware:
     def _allowed(origin):
         if origin in settings.ALLOWED_ORIGINS:
             return True
-        # Preview deployments: https://<hash>.<project>.pages.dev
+        # Preview URLs of a workers.dev frontend: https://<version>-<name>.<subdomain>.workers.dev
         return any(
-            o.startswith("https://") and o.endswith(".pages.dev") and origin.endswith("." + o[len("https://") :])
+            o.startswith("https://")
+            and o.endswith(".workers.dev")
+            and origin.startswith("https://")
+            and origin.endswith("-" + o[len("https://") :])
             for o in settings.ALLOWED_ORIGINS
         )
 

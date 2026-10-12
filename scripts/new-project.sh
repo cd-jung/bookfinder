@@ -3,8 +3,8 @@
 #
 #   scripts/new-project.sh <name> ["Display Name"] [--public]
 #
-# Does: GitHub repo from the template (private by default) -> D1 database, Vectorize index and
-# Pages project -> project.config.json + apply-config -> CLOUDFLARE_API_TOKEN secret from the macOS
+# Does: GitHub repo from the template (private by default) -> D1 database and Vectorize index
+# -> project.config.json + apply-config -> CLOUDFLARE_API_TOKEN secret from the macOS
 # Keychain -> first commit and push, which runs CI/CD and deploys.
 # Prerequisites (one time, see README.md): gh auth login, wrangler login, Keychain item "cloudflare-api-token".
 set -euo pipefail
@@ -50,13 +50,12 @@ $WRANGLER d1 create "$NAME-db" >/dev/null
 D1_ID="$($WRANGLER d1 info "$NAME-db" --json | jq -r '.uuid')"
 DIMS="$(jq -r '.ai.embeddingDimensions' project.config.json)"
 $WRANGLER vectorize create "$NAME-guide" --dimensions="$DIMS" --metric=cosine >/dev/null
-$WRANGLER pages project create "$NAME" --production-branch main >/dev/null
-echo "D1 $NAME-db ($D1_ID), Vectorize $NAME-guide, Pages $NAME"
+echo "D1 $NAME-db ($D1_ID), Vectorize $NAME-guide (the frontend and API Workers are created by the first deploy)"
 
 step "Writing project.config.json"
 jq --arg n "$NAME" --arg d "$DISPLAY" --arg id "$D1_ID" '
   .name = $n | .displayName = $d |
-  .cloudflare.workerName = ($n + "-api") | .cloudflare.pagesProject = $n |
+  .cloudflare.workerName = ($n + "-api") | .cloudflare.frontendWorker = $n |
   .cloudflare.d1Name = ($n + "-db") | .cloudflare.d1Id = $id | .cloudflare.vectorizeIndex = ($n + "-guide")
 ' project.config.json > project.config.tmp && mv project.config.tmp project.config.json
 node scripts/apply-config.mjs
@@ -73,7 +72,7 @@ cat <<DONE
 
 Done. Project: $TARGET
   GitHub:   https://github.com/$OWNER/$NAME   (watch: gh run watch --repo $OWNER/$NAME)
-  App:      https://$NAME.pages.dev
+  App:      https://$NAME.$SUBDOMAIN.workers.dev
   API:      https://$NAME-api.$SUBDOMAIN.workers.dev/api/health
-  Coverage: https://$NAME.pages.dev/coverage/
+  Coverage: https://$NAME.$SUBDOMAIN.workers.dev/coverage/
 DONE
