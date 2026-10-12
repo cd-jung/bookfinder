@@ -59,16 +59,19 @@ jobs:
       - name: Scenario coverage summary
         run: npm run coverage
 
-      - name: Build site (app + coverage report + /ux-flows/)
-        run: |
-          WORKER=$(jq -r '.cloudflare.workerName' project.config.json)
-          SUBDOMAIN=$(jq -r '.cloudflare.workersSubdomain' project.config.json)
-          VITE_API_BASE="https://${WORKER}.${SUBDOMAIN}.workers.dev" npm run build:site
+      - name: Build sites (public app; admin app + coverage report + /ux-flows/)
+        run: npm run build:site
 
       - uses: actions/upload-artifact@v4
         with:
           name: site
           path: frontend/dist
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site-admin
+          path: frontend/dist-admin
           retention-days: 7
 
       - uses: actions/upload-artifact@v4
@@ -109,6 +112,7 @@ jobs:
             echo "worker=$(jq -r '.cloudflare.workerName' project.config.json)"
             echo "subdomain=$(jq -r '.cloudflare.workersSubdomain' project.config.json)"
             echo "frontend=$(jq -r '.cloudflare.frontendWorker' project.config.json)"
+            echo "admin=$(jq -r '.cloudflare.adminWorker' project.config.json)"
           } >> "$GITHUB_OUTPUT"
 
       - name: Install backend tooling
@@ -147,6 +151,21 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ steps.cfg.outputs.account }}
         run: npx --prefix backend wrangler deploy --config frontend/wrangler.jsonc
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: site-admin
+          path: frontend/dist-admin
+
+      - name: Deploy admin site (assets + Access-checked /api proxy)
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.cfg.outputs.account }}
+        run: npx --prefix backend wrangler deploy --config frontend/wrangler.admin.jsonc
+
+      - name: Ensure the shared admin proxy secret (random, never printed)
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ steps.cfg.outputs.account }}
+        run: cd backend && bash scripts/ensure_admin_secret.sh
+
       - name: Smoke test
         run: |
           API="https://${{ steps.cfg.outputs.worker }}.${{ steps.cfg.outputs.subdomain }}.workers.dev"
@@ -158,11 +177,15 @@ jobs:
           APP="https://${{ steps.cfg.outputs.frontend }}.${{ steps.cfg.outputs.subdomain }}.workers.dev"
           curl -fsS -o /dev/null "$APP/"
           curl -fsS -o /dev/null "$APP/logs"
-          curl -fsS -o /dev/null "$APP/coverage"
-          curl -fsSL "$APP/reports/coverage.html" | grep -q 'content="coverage-report"'
+          ADMIN="https://${{ steps.cfg.outputs.admin }}.${{ steps.cfg.outputs.subdomain }}.workers.dev"
+          # Admin data must not be reachable without Access: directly on the API, and through the admin site.
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$API/api/logs/stats")" = "403"
+          # 403 from the admin Worker before Access is on; 302 to the Access sign-in page once it is.
+          case "$(curl -s -o /dev/null -w '%{http_code}' "$ADMIN/api/logs/stats")" in 302|403) ;; *) exit 1 ;; esac
+          test -z "$(curl -fsS "$APP/reports/coverage.html" | grep 'content="coverage-report"' || true)"
           echo "Deployed: $APP  API: $API"
 
       - name: Real-model E2E checks on the deployed site (@real)
         run: |
           cd e2e && npm ci && npx playwright install --with-deps chromium
-          DEPLOYED_URL="https://${{ steps.cfg.outputs.frontend }}.${{ steps.cfg.outputs.subdomain }}.workers.dev" npx playwright test
+          ADMIN_URL="https://${{ steps.cfg.outputs.admin }}.${{ steps.cfg.outputs.subdomain }}.workers.dev" DEPLOYED_URL="https://${{ steps.cfg.outputs.frontend }}.${{ steps.cfg.outputs.subdomain }}.workers.dev" npx playwright test

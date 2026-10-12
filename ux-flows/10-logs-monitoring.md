@@ -2,12 +2,16 @@
 
 Every API request is logged to the `RequestLog` table (and Cloudflare Workers Logs). The page shows a
 dashboard and searches the table in plain language: the LLM turns the question into a JSON filter,
-the backend validates it against the log catalogue and runs it through the Django ORM.
+the backend validates it against the log catalogue and runs it through the Django ORM. The page lives on
+the admin site (`bookfinder-admin`), which Cloudflare Access protects: only allow-listed emails get in.
 
 ```mermaid
 flowchart TD
-  enter(["Logs & Monitoring menu"]) --> dashboard["Dashboard cards: requests, error rate,<br/>p95 latency, client errors"]
+  enter(["Logs & Monitoring menu<br/>(admin site)"]) -->|"not signed in"| denied["'Sign-in required' (403)"]
+  enter --> dashboard["Dashboard cards: requests, error rate,<br/>p95 latency, client errors"]
   dashboard --> chart["Requests per hour chart<br/>(hover tooltip)"]
+  dashboard --> headroom["Resource headroom gauges:<br/>% of each limit, green / amber / red"]
+  headroom -->|"no analytics token"| cfMissing["'Cloudflare metrics need a<br/>read-only analytics token'"]
   dashboard --> range["Time range select"]
   range --> dashboard
   dashboard -->|"API error"| dashError["Error message + Retry"]
@@ -26,8 +30,8 @@ flowchart TD
   classDef screen fill:#e8f0fe,stroke:#2f5d9e
   classDef hidden fill:#fdecea,stroke:#c62828,stroke-dasharray:4 3,color:#b71c1c
   classDef internal fill:#f0f0f0,stroke:#cfcfcf,color:#555555
-  class dashboard,chart,question,interpreted,table,keyword screen
-  class dashError,rephrase,unavailable,empty hidden
+  class dashboard,headroom,chart,question,interpreted,table,keyword screen
+  class denied,cfMissing,dashError,rephrase,unavailable,empty hidden
   class translate internal
 
   %% guide 06-logs-and-monitoring.md

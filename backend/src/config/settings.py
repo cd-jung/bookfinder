@@ -51,6 +51,7 @@ MIDDLEWARE = [
     "core.middleware.CorsMiddleware",  # outermost, so even 429 / 413 responses are readable by the frontend
     "django.middleware.security.SecurityMiddleware",
     "core.middleware.EdgeRateLimitMiddleware",  # before logging: blocked floods cost no D1 writes
+    "core.middleware.AdminOnlyMiddleware",  # /api/logs/* only through the Access-protected admin Worker
     "core.middleware.RequestLogMiddleware",
 ]
 
@@ -79,6 +80,16 @@ RAG_MINIMUM_SIMILARITY = float(setting("RAG_MINIMUM_SIMILARITY", "0.5"))
 RATE_LIMITS = setting("RATE_LIMITS", "1") != "0"
 # Cost guard: real Workers AI calls (LLM + embeddings) allowed per UTC day across all users.
 AI_DAILY_LIMIT = int(setting("AI_DAILY_LIMIT", "500"))
+# Shared secret the admin Worker adds to proxied requests (X-Admin-Proxy). Without it on Workers, admin APIs
+# are closed; locally and in tests they are open.
+ADMIN_PROXY_SECRET = setting("ADMIN_PROXY_SECRET", "")
+ADMIN_PATHS = ("/api/logs",)
+# Cloudflare GraphQL Analytics (resource headroom on the dashboard): read-only token as a Worker secret.
+CF_ANALYTICS_TOKEN = setting("CF_ANALYTICS_TOKEN", "")
+CF_ACCOUNT_ID = setting("CF_ACCOUNT_ID", "")
+CF_D1_DATABASE_ID = setting("CF_D1_DATABASE_ID", "")
+CF_WORKER_NAME = setting("CF_WORKER_NAME", "")
+CPU_LIMIT_MS = int(setting("CPU_LIMIT_MS", "5000"))
 # Request logs older than this are deleted (a few rows at a time, on ~1 in 200 requests).
 LOG_RETENTION_DAYS = int(setting("LOG_RETENTION_DAYS", "14"))
 USER_GUIDE_DIR = Path(setting("USER_GUIDE_DIR", str(REPO_ROOT / "docs" / "user-guide")))

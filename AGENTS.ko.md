@@ -36,6 +36,7 @@ backend/                     Python Workers 위의 Django
   tests/                     pytest, 모듈이나 기능마다 파일 하나: test_<app>_*.py
   d1_migrations/             Django 마이그레이션에서 생성. 직접 수정 금지
   scripts/                   export_d1_migrations.py, index_guide.py (CD)
+frontend/admin-worker.js     관리자 Worker: Cloudflare Access JWT 검사, API로 /api 프록시 (wrangler.admin.jsonc)
 frontend/src/                기능마다 폴더 하나 (chat/, logs/, guide/, ...), 테스트는 코드 옆에
 docs/user-guide/<lang>/      en(원본), es, fr, ko의 NN-<topic>.md: 유저 가이드 페이지이자 RAG 원본
 ux-flows/                    NN-<feature>.md Mermaid 플로차트 + 뷰어 (index.html, build.py)

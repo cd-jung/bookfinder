@@ -8,6 +8,6 @@ void i18n.changeLanguage('en');
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-  sessionStorage.clear();
+  globalThis.sessionStorage?.clear();
   void i18n.changeLanguage('en');
 });

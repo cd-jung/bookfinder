@@ -60,8 +60,8 @@
 **권장 계정 설정 (Cloudflare와 GitHub 대시보드에서 직접):**
 
 1. Cloudflare → Notifications → **Usage Based Billing** 알림 추가(예: $10). 비용이 튀면 바로 알 수 있어요.
-2. **로그 및 모니터링** 페이지와 `/api/logs`는 공개 상태예요. 제한하려면 **Cloudflare Access**(50명까지 무료) 뒤에 두거나,
-   커스텀 도메인으로 서비스하고 WAF 규칙을 추가하세요.
+2. `bookfinder-admin` Worker(workers.dev와 preview URL)에 위의 이메일 정책으로 **Cloudflare Access**를 유지하세요.
+   관리자 추가·삭제는 Access 정책과 `project.config.json`의 `admin.emails`에서 함께 하세요.
 3. GitHub → Settings → Code security: **Secret scanning**, **Push protection**, **Dependabot alerts**를 켜세요(저장소가 public).
 4. `CLOUDFLARE_API_TOKEN`이 노출되면 교체하세요: 새 토큰 생성 → 키체인 항목과 `gh secret set CLOUDFLARE_API_TOKEN` 갱신 → 이전 토큰 삭제.
 
@@ -166,6 +166,22 @@ GitHub 저장소를 public으로 만들려면 `--public`을 붙입니다.
   또는 `backend/`에서 `npx wrangler tail`)와 D1 `RequestLog` 테이블에 남습니다.
 - **Logs & Monitoring** 페이지는 이 테이블을 읽습니다: 대시보드(요청 수, 5xx 오류율, p95 지연 시간,
   4xx 수, 시간별 요청 수)와 자연어(같은 자연어 -> ORM 엔진) 또는 키워드 로그 검색.
+
+### 관리자 사이트 (로그, 모니터링, 커버리지)
+
+- 공개 사이트(`bookfinder`)는 도서 검색과 사용자 가이드만 제공해요. **로그 및 모니터링**, **커버리지**, UX 흐름은
+  별도 관리자 Worker(`bookfinder-admin`, `frontend/admin-worker.js`)에 있고, `scripts/build-site.sh`가
+  `frontend/dist-admin`으로 빌드해요. 공개 사이트의 해당 메뉴는 관리자 사이트로 연결돼요.
+- **Cloudflare Access**(Zero Trust Free, 팀 `jolly-smoke-0c81`)가 관리자 Worker 전체를 보호해요. 정책은
+  *Include → Emails* = `project.config.json`의 `admin.emails`(현재 `kookastudios@gmail.com`), 로그인은 One-time PIN.
+- 다중 방어: 관리자 Worker도 Access JWT(`Cf-Access-Jwt-Assertion`, RS256, `aud`, `iss`, 만료, 이메일 허용 목록)를
+  검증하고, `/api/*`를 서비스 바인딩으로 `X-Admin-Proxy` 헤더와 함께 전달해요. API는 그 공유 시크릿
+  (`ADMIN_PROXY_SECRET`, CD가 두 Worker에 설정)이 있을 때만 `/api/logs*`에 응답하고, 없으면 403으로 닫혀요.
+  `admin.accessAud`를 채우기 전까지는 관리자 API도 403을 돌려줘요.
+- **리소스 여유**: 대시보드는 각 한도의 사용률을 %와 초록(<60%), 노랑(60–85%), 빨강(≥85%), 아이콘과 라벨로
+  보여 줘요. 앱 지표는 D1에서(1초 대비 p95, 5xx 예산 1%, 일일 AI 예산, 429 비율, 벡터 저장 공간), Cloudflare 지표는
+  읽기 전용 `CF_ANALYTICS_TOKEN` Worker 시크릿으로 GraphQL Analytics API에서 가져오고(`limits.cpu_ms` 대비 CPU p99,
+  이번 달 요청 수, D1 저장 공간과 행 수) 5분간 캐시해요. Cloudflare 대시보드에도 이 수치가 있지만 한도 대비 %가 아닌 원래 값으로만 보여요.
 
 ### UI
 

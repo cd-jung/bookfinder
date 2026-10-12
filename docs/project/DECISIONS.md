@@ -60,8 +60,8 @@ Project decisions on top of the template:
 **Recommended account settings (manual, in the Cloudflare and GitHub dashboards):**
 
 1. Cloudflare → Notifications → add a **Usage Based Billing** alert (for example at $10) so a cost spike is noticed early.
-2. The **Logs & Monitoring** page and `/api/logs` are public. To restrict them, put them behind **Cloudflare Access**
-   (free up to 50 users) or serve the app on a custom domain and add a WAF rule.
+2. Keep **Cloudflare Access** on the `bookfinder-admin` Worker (workers.dev and preview URLs) with the email policy
+   above; add or remove administrators in the Access policy and in `project.config.json` `admin.emails`.
 3. GitHub → Settings → Code security: turn on **Secret scanning**, **Push protection** and **Dependabot alerts**
    (the repositories are public).
 4. Rotate `CLOUDFLARE_API_TOKEN` if it is ever exposed: create a new token, update the Keychain item and
@@ -169,6 +169,23 @@ error 1102, so this template now assumes **Workers Paid**. To run on Free, move 
   Observability, or `npx wrangler tail` in `backend/`) and to the D1 `RequestLog` table.
 - The **Logs & Monitoring** page reads the table: dashboard (requests, 5xx error rate, p95 latency,
   4xx count, requests per hour) and log search in plain language (same NL -> ORM engine) or by keyword.
+
+### Admin site (logs, monitoring, coverage)
+
+- The public site (`bookfinder`) serves Book Search and the User Guide. **Logs & Monitoring**, **Coverage** and
+  the UX flows are on a separate admin Worker (`bookfinder-admin`, `frontend/admin-worker.js`), built into
+  `frontend/dist-admin` by `scripts/build-site.sh`. On the public site those menu entries link to the admin site.
+- **Cloudflare Access** (Zero Trust Free, team `jolly-smoke-0c81`) protects the whole admin Worker: policy
+  *Include → Emails* = `project.config.json` `admin.emails` (now `kookastudios@gmail.com`), One-time PIN login.
+- Defence in depth: the admin Worker also verifies the Access JWT (`Cf-Access-Jwt-Assertion`, RS256, `aud`,
+  `iss`, expiry, email allow-list) and forwards `/api/*` over a service binding with `X-Admin-Proxy`.
+  The API answers `/api/logs*` only with that shared secret (`ADMIN_PROXY_SECRET`, set by CD on both Workers);
+  without it, it fails closed with 403. Until `admin.accessAud` is filled in, the admin API also answers 403.
+- **Resource headroom**: the dashboard shows each limit as % used with green (<60%), amber (60–85%) and red
+  (≥85%) plus an icon and label. App metrics come from D1 (p95 vs 1 s, 5xx budget 1%, daily AI budget,
+  429 share, vector storage). Cloudflare metrics come from the GraphQL Analytics API with a read-only
+  `CF_ANALYTICS_TOKEN` Worker secret (CPU p99 vs `limits.cpu_ms`, requests, D1 storage and rows this month),
+  cached for 5 minutes. Cloudflare's own dashboard shows these numbers too, but as raw values, not % of limits.
 
 ### UI
 

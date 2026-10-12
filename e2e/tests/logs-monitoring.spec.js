@@ -88,4 +88,21 @@ test.describe('Logs & Monitoring', () => {
     await page.keyboard.press('Enter');
     await expect(page.getByText('No log entries match.')).toBeVisible();
   });
+
+  test('[LOGS-009] resource headroom shows a % gauge with a status label', async ({ page }) => {
+    await page.goto('/logs');
+    const gauge = page.getByTestId('gauge-latencyP95');
+    await expect(gauge).toBeVisible();
+    await expect(page.getByTestId('gauge-latencyP95-percent')).toHaveText(/^\d+(\.\d+)? ?%$/);
+    await expect(gauge.getByText(/^(OK|Watch|Critical)$/)).toBeVisible();
+    await expect(page.getByTestId('gauge-aiBudget')).toBeVisible();
+  });
+
+  test('[LOGS-010] @real admin API answers 403 without a Cloudflare Access sign-in', async ({ request }) => {
+    const admin = process.env.ADMIN_URL;
+    test.skip(!admin, 'ADMIN_URL is not set');
+    const response = await request.get(`${admin}/api/logs/stats`, { maxRedirects: 0 });
+    // 403 from the admin Worker before Access is on; a 302 to the Access sign-in page once it is.
+    expect([302, 403]).toContain(response.status());
+  });
 });

@@ -1,0 +1,20 @@
+{
+	// Admin Worker: logs, monitoring and coverage. Protect the whole hostname with Cloudflare Access
+	// (Workers & Pages -> this Worker -> Settings -> Domains & Routes -> workers.dev and Preview URLs).
+	"name": "bookfinder-admin", // from project.config.json
+	"main": "./admin-worker.js",
+	"compatibility_date": "2026-07-29",
+	"assets": {
+		"directory": "./dist-admin",
+		"binding": "ASSETS",
+		"not_found_handling": "single-page-application",
+		"run_worker_first": ["/api/*"]
+	},
+	"services": [{ "binding": "API", "service": "bookfinder-api" }], // from project.config.json
+	"vars": {
+		"ADMIN_EMAILS": "kookastudios@gmail.com", // from project.config.json
+		"ACCESS_TEAM_DOMAIN": "jolly-smoke-0c81.cloudflareaccess.com", // from project.config.json (set after Zero Trust onboarding)
+		"ACCESS_AUD": "" // from project.config.json (Access application audience tag)
+	},
+	"observability": { "enabled": true }
+}

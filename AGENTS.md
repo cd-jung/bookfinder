@@ -35,6 +35,7 @@ backend/                     Django on Python Workers
   tests/                     pytest, one file per module or feature: test_<app>_*.py
   d1_migrations/             generated from Django migrations, never edited by hand
   scripts/                   export_d1_migrations.py, index_guide.py (CD)
+frontend/admin-worker.js     admin Worker: Cloudflare Access JWT check, /api proxy to the API (wrangler.admin.jsonc)
 frontend/src/                one folder per feature (chat/, logs/, guide/, ...), tests next to code
 docs/user-guide/<lang>/      NN-<topic>.md in en (source), es, fr, ko: the User Guide page AND the RAG corpus
 ux-flows/                    NN-<feature>.md Mermaid flowcharts + viewer (index.html, build.py)

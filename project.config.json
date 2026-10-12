@@ -9,7 +9,8 @@
     "frontendWorker": "bookfinder",
     "d1Name": "bookfinder-db",
     "d1Id": "fa48c598-9df2-4165-b998-d8f2a0249c82",
-    "vectorizeIndex": "bookfinder-guide"
+    "vectorizeIndex": "bookfinder-guide",
+    "adminWorker": "bookfinder-admin"
   },
   "ai": {
     "embeddingModel": "@cf/baai/bge-m3",
@@ -17,5 +18,12 @@
     "llmModel": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
     "ragTopK": 5,
     "ragMinimumSimilarity": 0.5
+  },
+  "admin": {
+    "emails": [
+      "kookastudios@gmail.com"
+    ],
+    "accessTeamDomain": "jolly-smoke-0c81.cloudflareaccess.com",
+    "accessAud": ""
   }
 }

@@ -19,7 +19,8 @@ import MenuIcon from '@mui/icons-material/Menu';
 import { useTranslation } from 'react-i18next';
 import LanguageSelect from '../i18n/LanguageSelect';
 import { APP_NAME } from '../config';
-import { NAV_ITEMS } from './navItems';
+import { ADMIN_URL, PUBLIC_URL, SITE } from '../config';
+import { NAV_ITEMS, navHref } from './navItems';
 import HelpChat from '../chat/HelpChat';
 import { ChatProvider } from '../chat/ChatContext';
 
@@ -39,15 +40,16 @@ export default function AppLayout() {
       <List>
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
-          const linkProps = item.external
-            ? { component: 'a' as const, href: item.to }
-            : { component: RouterLink, to: item.to };
+          const target = navHref(item, SITE, ADMIN_URL, PUBLIC_URL);
+          const linkProps = target.external
+            ? { component: 'a' as const, href: target.href }
+            : { component: RouterLink, to: target.href };
           return (
             <ListItem key={item.to} disablePadding>
             <ListItemButton
               {...linkProps}
-              selected={!item.external && isActive(item.to)}
-              aria-current={!item.external && isActive(item.to) ? 'page' : undefined}
+              selected={!target.external && isActive(item.to)}
+              aria-current={!target.external && isActive(item.to) ? 'page' : undefined}
               onClick={() => setOpen(false)}
             >
               <ListItemIcon>

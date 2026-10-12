@@ -1318,6 +1318,17 @@
           "nodes": [
             "08:notFound"
           ]
+        },
+        {
+          "id": "SHELL-005",
+          "priority": "secondary",
+          "rule": "S1",
+          "account": "anonymous",
+          "group": "Menu",
+          "title": "@real on the public site Logs & Monitoring and Coverage link to the admin site",
+          "nodes": [
+            "08:adminLink"
+          ]
         }
       ]
     },
@@ -1460,6 +1471,28 @@
           "title": "No matching logs shows 'No log entries match.'",
           "nodes": [
             "10:empty"
+          ]
+        },
+        {
+          "id": "LOGS-009",
+          "priority": "primary",
+          "rule": "S1",
+          "account": "anonymous",
+          "group": "Dashboard",
+          "title": "Resource headroom shows a % gauge with a status label for each limit",
+          "nodes": [
+            "10:headroom"
+          ]
+        },
+        {
+          "id": "LOGS-010",
+          "priority": "primary",
+          "rule": "S5",
+          "account": "anonymous",
+          "group": "Access",
+          "title": "@real admin API answers 403 without a Cloudflare Access sign-in",
+          "nodes": [
+            "10:denied"
           ]
         }
       ]

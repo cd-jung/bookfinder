@@ -31,8 +31,9 @@ import AutoAwesome from '@mui/icons-material/AutoAwesome';
 import SearchIcon from '@mui/icons-material/Search';
 import { useTranslation } from 'react-i18next';
 import { ApiError } from '../api/client';
-import { logsApi, type LogPage, type LogStats, type LogsApi, type Translation } from './api';
+import { logsApi, type LogPage, type LogStats, type LogsApi, type Resources, type Translation } from './api';
 import RequestsChart from './RequestsChart';
+import ResourceHeadroom from './ResourceHeadroom';
 
 const RANGES = [1, 6, 24, 72, 168];
 const LEVEL_COLOR = { INFO: 'default', WARN: 'warning', ERROR: 'error' } as const;
@@ -52,6 +53,7 @@ type T = (key: string, options?: Record<string, unknown>) => string;
 
 function errorText(error: unknown, fallback: string, t: T) {
   if (error instanceof ApiError) {
+    if (error.status === 403) return t('admin.signInRequired');
     if (error.status === 422) return t('search.errors.untranslatable');
     if (error.status === 502 || error.status === 503) return t('search.errors.aiDown');
     if (error.status === 429) return t('search.errors.tooMany', { seconds: (error.body as { retryAfter?: number } | null)?.retryAfter ?? 60 });
@@ -65,6 +67,7 @@ export default function LogsPage({ api = logsApi }: { api?: LogsApi }) {
   const [examples, setExamples] = useState<string[]>([]);
   const [hours, setHours] = useState(24);
   const [stats, setStats] = useState<LogStats | null>(null);
+  const [resources, setResources] = useState<Resources | null>(null);
   const [statsError, setStatsError] = useState('');
 
   const [mode, setMode] = useState<'nl' | 'keyword'>('nl');
@@ -81,6 +84,7 @@ export default function LogsPage({ api = logsApi }: { api?: LogsApi }) {
   const loadStats = useCallback(() => {
     setStatsError('');
     api.stats(hours).then(setStats, (e) => setStatsError(errorText(e, t('logs.dashboardError'), t)));
+    api.resources().then(setResources, () => setResources(null));
   }, [api, hours, t]);
 
   useEffect(loadStats, [loadStats]);
@@ -102,7 +106,7 @@ export default function LogsPage({ api = logsApi }: { api?: LogsApi }) {
     return () => {
       cancelled = true;
     };
-  }, [api, mode, nl, keyword, level, page]);
+  }, [api, mode, nl, keyword, level, page, t]);
 
   const runQuestion = async (text: string) => {
     if (!text.trim() || translating) return;
@@ -171,6 +175,11 @@ export default function LogsPage({ api = logsApi }: { api?: LogsApi }) {
               <Typography variant="subtitle2" component="h2" sx={{ mb: 1 }}>{t('logs.perHour')}</Typography>
               <RequestsChart data={stats.perHour} />
             </Paper>
+            {resources && (
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <ResourceHeadroom data={resources} />
+              </Paper>
+            )}
           </Stack>
         )}
       </Box>

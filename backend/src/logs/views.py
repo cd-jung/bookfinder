@@ -86,3 +86,11 @@ def stats(request):
 @require_GET
 def nl_examples(request):
     return examples_response(LOG_CATALOG, request)
+
+
+@require_GET
+def resources(_request):
+    """Headroom gauges: share of each limit in use (app metrics always, Cloudflare metrics when configured)."""
+    from logs.resources import app_metrics, cloudflare_metrics
+
+    return JsonResponse({"app": app_metrics(), "cloudflare": cloudflare_metrics()})

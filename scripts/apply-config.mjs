@@ -31,8 +31,19 @@ edit('backend/wrangler.jsonc', [
   [str('RAG_TOP_K'), `$1"${cfg.ai.ragTopK}"`],
   [str('RAG_MINIMUM_SIMILARITY'), `$1"${cfg.ai.ragMinimumSimilarity}"`],
   [str('ALLOWED_HOSTS'), `$1"${cf.workerName}.${cf.workersSubdomain}.workers.dev"`],
+  [str('CF_ACCOUNT_ID'), `$1"${cf.accountId}"`],
+  [str('CF_WORKER_NAME'), `$1"${cf.workerName}"`],
+  [str('CF_D1_DATABASE_ID'), `$1"${cf.d1Id}"`],
 ]);
 edit('frontend/wrangler.jsonc', [[/("name":\s*)"[^"]*"/, `$1"${cf.frontendWorker}"`]]);
+const admin = cfg.admin || { emails: [], accessTeamDomain: '', accessAud: '' };
+edit('frontend/wrangler.admin.jsonc', [
+  [/("name":\s*)"[^"]*"/, `$1"${cf.adminWorker}"`],
+  [str('service'), `$1"${cf.workerName}"`],
+  [str('ADMIN_EMAILS'), `$1"${admin.emails.join(',')}"`],
+  [str('ACCESS_TEAM_DOMAIN'), `$1"${admin.accessTeamDomain}"`],
+  [str('ACCESS_AUD'), `$1"${admin.accessAud}"`],
+]);
 edit('frontend/src/config.ts', [[/export const APP_NAME = '[^']*';/, `export const APP_NAME = '${cfg.displayName.replace(/'/g, "\\'")}';`]]);
 edit('frontend/index.html', [[/<title>[^<]*<\/title>/, `<title>${cfg.displayName}</title>`]]);
 edit('backend/pyproject.toml', [[/^name = "[^"]*"/m, `name = "${cfg.name}-backend"`]]);

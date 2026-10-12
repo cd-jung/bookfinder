@@ -45,4 +45,13 @@ test.describe('App shell & navigation', () => {
     await page.getByRole('link', { name: 'Go to Home' }).click();
     await expect(page).toHaveURL(/\/$/);
   });
+
+  test('[SHELL-005] @real on the public site Logs & Monitoring and Coverage link to the admin site', async ({ page }) => {
+    const admin = process.env.ADMIN_URL;
+    test.skip(!admin, 'ADMIN_URL is not set');
+    await page.goto('/');
+    const menu = page.getByRole('navigation', { name: 'Main menu' });
+    await expect(menu.getByRole('link', { name: 'Logs & Monitoring' })).toHaveAttribute('href', `${admin}/logs`);
+    await expect(menu.getByRole('link', { name: 'Coverage' })).toHaveAttribute('href', `${admin}/coverage`);
+  });
 });

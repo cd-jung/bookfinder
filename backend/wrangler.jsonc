@@ -33,6 +33,10 @@
 		"RAG_TOP_K": "5", // from project.config.json
 		"RAG_MINIMUM_SIMILARITY": "0.5", // from project.config.json
 		"AI_DAILY_LIMIT": "500",
+		"CPU_LIMIT_MS": "5000",
+		"CF_ACCOUNT_ID": "7d13fa412be4360e16b68ba93dbec736", // from project.config.json
+		"CF_WORKER_NAME": "bookfinder-api", // from project.config.json
+		"CF_D1_DATABASE_ID": "fa48c598-9df2-4165-b998-d8f2a0249c82", // from project.config.json
 		"ALLOWED_HOSTS": "bookfinder-api.kookastudios.workers.dev" // from project.config.json
 	},
 	"observability": { "enabled": true }

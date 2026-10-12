@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import json
 import random
 import sys
@@ -84,6 +85,30 @@ class EdgeRateLimitMiddleware:
         except Exception as exc:  # a limiter failure must not take the API down
             print(f"rate limiter {binding} failed: {exc}", file=sys.stderr)
             return True
+
+
+class AdminOnlyMiddleware:
+    """Admin APIs (settings.ADMIN_PATHS) answer only requests proxied by the admin Worker.
+
+    The admin Worker sits behind Cloudflare Access, verifies the Access JWT and adds the shared
+    X-Admin-Proxy secret. On Workers without a configured secret the admin APIs are closed (fail closed).
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.path.startswith(settings.ADMIN_PATHS) and request.method != "OPTIONS":
+            secret = settings.ADMIN_PROXY_SECRET
+            given = request.headers.get("X-Admin-Proxy", "")
+            if secret:
+                if not hmac.compare_digest(given.encode(), secret.encode()):
+                    return JsonResponse(
+                        {"detail": "This admin API is only available through the admin site."}, status=403
+                    )
+            elif settings.ON_WORKERS:
+                return JsonResponse({"detail": "Admin access is not configured."}, status=403)
+        return self.get_response(request)
 
 
 class RequestLogMiddleware:

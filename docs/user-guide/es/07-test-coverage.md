@@ -4,6 +4,8 @@ La página **Cobertura** muestra cuánto de BookFinder comprueban las pruebas au
 como las demás páginas del menú y se regenera en cada despliegue. Usa **Abrir en una pestaña nueva** para ver el
 informe por separado. El informe es una herramienta para desarrolladores y se muestra en inglés.
 
+> **Solo administradores.** Esta página está en el sitio de administración. Inicia sesión con un correo autorizado; recibirás un código de un solo uso. Sin iniciar sesión verás **Debes iniciar sesión**.
+
 ## Qué muestra la página
 
 - **Pruebas unitarias**: cobertura de líneas del código del backend y del frontend, por archivo.

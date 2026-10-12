@@ -38,6 +38,20 @@ export interface LogStats {
   perHour: HourSlot[];
 }
 
+export interface Metric {
+  key: string;
+  value: number;
+  limit: number;
+  unit: string;
+  share: number;
+  extra?: Record<string, number>;
+}
+
+export interface Resources {
+  app: Metric[];
+  cloudflare: { available: boolean; reason?: string; metrics: Metric[] };
+}
+
 export interface Translation {
   filter: unknown;
   description: string;
@@ -59,6 +73,7 @@ export const logsApi = {
       page,
     }),
   stats: (hours: number) => getJson<LogStats>('/api/logs/stats', { hours }),
+  resources: () => getJson<Resources>('/api/logs/resources'),
   translate: (question: string) => postJson<Translation>('/api/logs/nl-search/translate', { question }),
   examples: () => getJson<{ examples: string[] }>('/api/logs/nl-search/examples'),
 };

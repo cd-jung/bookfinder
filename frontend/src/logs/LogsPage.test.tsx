@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ApiError } from '../api/client';
 import { renderAt } from '../test/render';
-import type { LogsApi, LogStats } from './api';
+import type { LogsApi, LogStats, Resources } from './api';
 import LogsPage from './LogsPage';
 import RequestsChart from './RequestsChart';
 
@@ -35,12 +35,22 @@ const stats: LogStats = {
   ],
 };
 
+const resources: Resources = {
+  app: [
+    { key: 'latencyP95', value: 180, limit: 1000, unit: 'ms', share: 0.18, extra: { p50: 20, p99: 400 } },
+    { key: 'aiBudget', value: 450, limit: 500, unit: 'calls', share: 0.9 },
+    { key: 'errorBudget', value: 0.7, limit: 1, unit: '%', share: 0.7 },
+  ],
+  cloudflare: { available: false, reason: 'not_configured', metrics: [] },
+};
+
 function makeApi(overrides: Partial<LogsApi> = {}): LogsApi {
   return {
     stats: vi.fn().mockResolvedValue(stats),
     list: vi.fn().mockResolvedValue({ total: 2, page: 1, pages: 1, results: [row(1), row(2, 503)] }),
     translate: vi.fn().mockResolvedValue({ filter: { field: 'status_code', op: 'gte', value: 500 }, description: 'status at least 500' }),
     examples: vi.fn().mockResolvedValue({ examples: ['errors in the last hour', 'slow requests over 500ms'] }),
+    resources: vi.fn().mockResolvedValue(resources),
     ...overrides,
   };
 }
@@ -138,5 +148,33 @@ describe('RequestsChart', () => {
   it('says when there is no data', () => {
     renderAt(<RequestsChart data={[]} />);
     expect(screen.getByText('No requests in this time range.')).toBeInTheDocument();
+  });
+});
+
+
+describe('ResourceHeadroom', () => {
+  it('shows each limit as % with a status word and colour band', async () => {
+    renderAt(<LogsPage api={makeApi()} />);
+    expect(await screen.findByTestId('gauge-latencyP95-percent')).toHaveTextContent('18%');
+    expect(screen.getByTestId('gauge-latencyP95')).toHaveAttribute('data-status', 'ok');
+    expect(screen.getByTestId('gauge-errorBudget')).toHaveAttribute('data-status', 'watch');
+    expect(screen.getByTestId('gauge-aiBudget')).toHaveAttribute('data-status', 'critical');
+    expect(within(screen.getByTestId('gauge-aiBudget')).getByText('Critical')).toBeInTheDocument();
+    expect(within(screen.getByTestId('gauge-latencyP95')).getByText('180 ms / 1,000 ms')).toBeInTheDocument();
+    expect(screen.getByTestId('cloudflare-unavailable')).toHaveTextContent('read-only analytics token');
+  });
+
+  it('shows Cloudflare gauges with readable sizes when available', async () => {
+    const withCf: Resources = {
+      app: [],
+      cloudflare: { available: true, metrics: [{ key: 'd1Storage', value: 6 * 1024 ** 2, limit: 10 * 1024 ** 3, unit: 'bytes', share: 0.0006 }] },
+    };
+    renderAt(<LogsPage api={makeApi({ resources: vi.fn().mockResolvedValue(withCf) })} />);
+    expect(await screen.findByText('6 MB / 10 GB')).toBeInTheDocument();
+  });
+
+  it('asks to sign in when the admin API answers 403', async () => {
+    renderAt(<LogsPage api={makeApi({ stats: vi.fn().mockRejectedValue(new ApiError(403, { detail: 'x' })) })} />);
+    expect(await screen.findByText(/Sign-in required/)).toBeInTheDocument();
   });
 });
