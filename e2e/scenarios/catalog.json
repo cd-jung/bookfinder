@@ -1288,7 +1288,7 @@
           "rule": "S1",
           "account": "anonymous",
           "group": "Layout",
-          "title": "Menu entries open Book Search, User Guide and Logs & Monitoring; Coverage links to /coverage/",
+          "title": "Menu entries open Book Search, User Guide and Logs & Monitoring; Coverage shows the report inside the layout",
           "nodes": [
             "08:home",
             "08:guide",

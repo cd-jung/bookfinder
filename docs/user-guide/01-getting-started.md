@@ -9,7 +9,7 @@ The left menu has four sections:
 - **Book Search**: search the catalogue by keyword, with filters, or in plain language.
 - **User Guide**: these pages.
 - **Logs & Monitoring**: request logs and service health.
-- **Coverage**: how much of BookFinder is covered by automated tests.
+- **Coverage**: how much of BookFinder is covered by automated tests, shown inside the app.
 
 Click **BookFinder** at the top to start a new, empty search. On a small screen, open the menu with the
 menu button in the top-left corner.

@@ -1,6 +1,7 @@
 # Test Coverage
 
-The **Coverage** page shows how much of BookFinder is checked by automated tests. It is rebuilt on every deployment.
+The **Coverage** page shows how much of BookFinder is checked by automated tests. It opens inside BookFinder like the other menu pages
+and is rebuilt on every deployment. Use **Open in a new tab** to see the report on its own.
 
 ## What the page shows
 

@@ -16,7 +16,7 @@ The Korean translation is `AGENTS.ko.md`. Architecture and the reasons behind ea
 | Logs | Every API request -> Workers Logs (stdout) and the `RequestLog` table |
 | Tests | pytest + pytest-django, Vitest + Testing Library, Playwright (UX-flow scenarios) |
 | CI/CD | GitHub Actions: verify on every push / PR, deploy on `main` |
-| Plan | Cloudflare **Workers Free**; keep per-request CPU low (few Django apps, no heavy imports) |
+| Plan | Cloudflare **Workers Paid** ($5/month): Django uses ~60 ms CPU per request, over the free 10 ms; still keep it low (few apps, no heavy imports) |
 
 ## 2. Repository map
 
@@ -162,7 +162,7 @@ Commit message: `feat(<feature>): ...`, `fix(<feature>): ...`, `refactor(<featur
 | `npm run test:e2e` | Playwright against the local stack |
 | `npm run check` | consistency check (add `-- --strict` to fail on uncovered core scenarios) |
 | `npm run coverage` | E2E scenario coverage in the terminal |
-| `npm run build:site` | app + `/coverage/` report + `/ux-flows/` viewer into `frontend/dist` |
+| `npm run build:site` | app + coverage report (shown at `/coverage`) + `/ux-flows/` viewer into `frontend/dist` |
 | `npm run migrations` | Django migrations + D1 SQL export |
 | `npm run verify` | everything CI runs before deploy |
 

@@ -59,7 +59,7 @@ jobs:
       - name: Scenario coverage summary
         run: npm run coverage
 
-      - name: Build site (app + /coverage/ + /ux-flows/)
+      - name: Build site (app + coverage report + /ux-flows/)
         run: |
           WORKER=$(jq -r '.cloudflare.workerName' project.config.json)
           SUBDOMAIN=$(jq -r '.cloudflare.workersSubdomain' project.config.json)
@@ -153,7 +153,8 @@ jobs:
           APP="https://${{ steps.cfg.outputs.frontend }}.${{ steps.cfg.outputs.subdomain }}.workers.dev"
           curl -fsS -o /dev/null "$APP/"
           curl -fsS -o /dev/null "$APP/logs"
-          curl -fsS -o /dev/null "$APP/coverage/"
+          curl -fsS -o /dev/null "$APP/coverage"
+          curl -fsS "$APP/reports/coverage.html" | grep -q 'content="coverage-report"'
           echo "Deployed: $APP  API: $API"
 
       - name: Real-model E2E checks on the deployed site (@real)

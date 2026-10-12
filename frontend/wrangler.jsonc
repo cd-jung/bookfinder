@@ -1,5 +1,5 @@
 {
-	// Frontend Worker: serves frontend/dist (app + /coverage/ + /ux-flows/) as static assets.
+	// Frontend Worker: serves frontend/dist (app + /reports/coverage.html + /ux-flows/) as static assets.
 	// No script: static requests are free and never invoke a Worker.
 	"name": "bookfinder", // from project.config.json
 	"compatibility_date": "2026-07-29",

@@ -13,7 +13,7 @@ flowchart TD
   menu -->|"Book Search"| home[["Book search<br/>(scenarios 1-4)"]]
   menu -->|"User Guide"| guide[["User Guide<br/>(scenario 9)"]]
   menu -->|"Logs & Monitoring"| logs[["Logs & Monitoring<br/>(scenario 10)"]]
-  menu -->|"Coverage"| coverage["Static coverage report /coverage/"]
+  menu -->|"Coverage"| coverage["Coverage report inside the layout<br/>(build hint when not built yet)"]
   shell -->|"Help"| help[["Help assistant<br/>(scenario 5)"]]
   open -->|"unknown path"| notFound["'Page not found' + Go to Home"]
 

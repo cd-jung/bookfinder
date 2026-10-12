@@ -74,5 +74,5 @@ Done. Project: $TARGET
   GitHub:   https://github.com/$OWNER/$NAME   (watch: gh run watch --repo $OWNER/$NAME)
   App:      https://$NAME.$SUBDOMAIN.workers.dev
   API:      https://$NAME-api.$SUBDOMAIN.workers.dev/api/health
-  Coverage: https://$NAME.$SUBDOMAIN.workers.dev/coverage/
+  Coverage: https://$NAME.$SUBDOMAIN.workers.dev/coverage
 DONE

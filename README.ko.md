@@ -17,7 +17,7 @@ Cloudflare Workers Static Assets(새 Cloudflare Pages)의 React + MUI 프론트�
 |---|---|
 | 앱 | https://bookfinder.kookastudios.workers.dev |
 | API | https://bookfinder-api.kookastudios.workers.dev/api/health |
-| 커버리지 | https://bookfinder.kookastudios.workers.dev/coverage/ |
+| 커버리지 | https://bookfinder.kookastudios.workers.dev/coverage |
 | 데이터 | 생성한 책 10,000권 (`backend/src/books/seed.py`, 결정적. 실제 제목 몇 개를 기준점으로 쓰고, 가격과 재고는 모두 가상) |
 | 테스트 | E2E 시나리오 114개 (core 43개, 커버리지 100%), 백엔드 + 프론트엔드 유닛 테스트 |
 
@@ -28,8 +28,8 @@ Cloudflare Workers Static Assets(새 Cloudflare Pages)의 React + MUI 프론트�
 | 챗봇 | 명세의 "Ask the librarian"을 **Help** 도우미로 변경: 유저 가이드만 근거로 하는 RAG, 짧은 답변 + 링크 | 사용자 결정: 챗봇은 서비스 사용법만 안내하고, 책 데이터는 Vectorize에 넣지 않음 |
 | 삭제한 시나리오 | `DET-007`(이 책에 대해 질문), `CHAT-008`(책 문맥 칩), `CHAT-010`(추천 책), `GRD-004`(오래된 가격), `SAFE-003`(책 설명 속 지시문) | 카탈로그 챗봇에서만 의미가 있음 |
 | 바꾼 시나리오 | `CHAT-002` 토큰 스트리밍 없음(답이 한 번에 나오고 `CHAT-006` Stop은 요청 취소), `CHAT-007` 후속 질문은 이전 질문을 검색에 함께 사용, `GRD-005` 한국어 답변은 배포 사이트에서 확인(`@real`) | Python Workers + Workers AI는 응답을 한 번에 돌려주고, stub은 번역을 못 함 |
-| 데이터 모델 | 넓은 `Book` 테이블 하나. 저자 / 장르 / 형식은 조인 테이블 대신 `\|a\|b\|` 토큰 텍스트 | D1 무료 플랜: 하루 쓰기 10만 행 (시드에 약 5.1만 사용) |
-| 읽기 예산 | 검색 한 번에 D1 행을 최대 약 2만 개 읽음 (전체 수 + 패싯 개수 한 번, 현재 페이지 한 번) | 하루 읽기 500만 행 무료 한도로 약 250번 검색. 데모에는 충분 |
+| 데이터 모델 | 넓은 `Book` 테이블 하나. 저자 / 장르 / 형식은 조인 테이블 대신 `\|a\|b\|` 토큰 텍스트 | D1 무료 플랜의 하루 쓰기 10만 행에 맞춰 설계(시드에 약 5.1만 사용). 빠르고 단순해서 Paid에서도 유지 |
+| 읽기 예산 | 검색 한 번에 D1 행을 최대 약 2만 개 읽음 (전체 수 + 패싯 개수 한 번, 현재 페이지 한 번) | Paid 플랜의 월 읽기 250억 행으로 월 약 125만 번 검색 |
 | 자연어 안전장치 | D1에는 Postgres 읽기 전용 트랜잭션 / statement timeout이 없음. ORM `filter()`만 쓰고, 필터를 두 번 검증하고, 느리면 "Search took too long" 표시 | D1에는 `SET LOCAL`이 없음 |
 | 요청 제한 | `/api/nl-search/translate`와 `/api/rag/answers`에 클라이언트당 분당 10회 (429 + Retry-After), `RequestLog`로 계산 | 다른 서비스 없이 Worker isolate끼리 공유. 로컬 E2E에서는 끔(`RATE_LIMITS=0`) |
 | 시드 | CD 단계 `scripts/seed_d1.sh`가 `books_book`이 비어 있을 때만 한 번 책을 넣음 | 반복 쓰기 방지 |
@@ -50,7 +50,7 @@ Vectorize 인덱스를 만들고, `project.config.json`을 채우고, macOS 키�
 |---|---|
 | 앱 | `https://my-app.kookastudios.workers.dev` |
 | API | `https://my-app-api.kookastudios.workers.dev/api/health` |
-| 커버리지 | `https://my-app.kookastudios.workers.dev/coverage/` |
+| 커버리지 | `https://my-app.kookastudios.workers.dev/coverage` |
 | UX flow | `https://my-app.kookastudios.workers.dev/ux-flows/` |
 
 그다음 새 폴더를 Claude Code로 열고 `/feature <설명>`으로 기능을 만듭니다.
@@ -63,7 +63,7 @@ GitHub 저장소를 public으로 만들려면 `--public`을 붙입니다.
 | 0-5분 | `new-project.sh` 실행, Claude Code로 폴더 열기, `gh run watch`로 첫 배포 확인 |
 | 5-10분 | 면접관과 기능 목록 합의, 첫 기능의 UX flow + 시나리오 |
 | 10-50분 | 기능마다 `/feature` 한 번, 로컬에서 `npm run verify`, 기능마다 push (CI가 배포) |
-| 50-60분 | 실제 앱, `/coverage/`, 로그 대시보드, Help 도우미 시연, AGENTS.md 설명 |
+| 50-60분 | 실제 앱, `/coverage`, 로그 대시보드, Help 도우미 시연, AGENTS.md 설명 |
 
 ---
 
@@ -100,12 +100,11 @@ GitHub 저장소를 public으로 만들려면 `--public`을 붙입니다.
 | 프론트엔드 호스팅 | **Workers Static Assets** (별도 Worker, `frontend/wrangler.jsonc`) | R2 버킷 + 도메인, 구버전 Pages | 원래 Pages로 계획. 2026-10-12에 wrangler 4.149가 Pages를 "Workers에 통합된 최신 Cloudflare Pages"로 넘겨서 사용자가 Static Assets를 선택. SPA fallback, CDN, 정적 요청 무료·무제한. R2만 쓰면 규칙을 직접 만들어야 함. R2는 사용자 파일용 |
 | 백엔드 | **Python Workers 위의 Django** (`django-cf`로 WSGI) | Python Workers 위의 FastAPI, Hono + Drizzle (TypeScript), **Cloudflare Containers**의 Django | Django를 의도적으로 유지. Containers는 Workers Paid(월 $5)와 Docker 필요. FastAPI는 D1 ORM이 없음. CPU 한도가 문제되면 Hono + Drizzle로 전환 |
 | 컨테이너 | **사용 안 함** | Cloudflare Containers | Workers는 컨테이너가 아니라 V8 isolate에서 실행(Python은 Pyodide) |
-| 요금제 | **Workers Free** | Workers Paid 월 $5 | 사용자 결정: 무료 유지. 아래 CPU 참고 |
+| 요금제 | **Workers Paid** (월 $5) | Workers Free | 처음엔 Free(사용자 결정). 2026-10-12에 일반 사용 중 Cloudflare error 1102(CPU 한도)가 나서 사용자가 업그레이드. Paid는 요청당 CPU 30초(최대 5분), 월 3,000만 CPU ms 포함 |
 
-**CPU 참고 (2026-10-12 측정):** Django + D1(1만 행) 스파이크는 무료 플랜에서 동작했습니다
-(요청당 약 0.2-0.3초, 콜드 스타트 약 2초). 하지만 요청당 CPU가 **50-64ms**로 무료 한도 10ms를 넘었습니다.
-트래픽이 적을 때는 Cloudflare가 허용했습니다. "exceeded CPU"로 요청이 실패하기 시작하면 Workers Paid로
-올리거나 API를 Hono + Drizzle로 옮기세요.
+**CPU 참고 (2026-10-12 측정):** Python Workers 위의 Django는 **요청당 CPU 50-64ms**를 씁니다(콜드 스타트 약 2초).
+무료 플랜 한도는 10ms라서, 처음엔 동작했지만 Cloudflare가 error 1102로 요청을 거부하기 시작했습니다.
+그래서 이 템플릿은 이제 **Workers Paid**를 전제로 합니다. 무료로 쓰려면 API를 Hono + Drizzle로 옮기세요.
 
 ### 데이터
 
@@ -168,17 +167,17 @@ Cloudflare Git 연동 대신 Actions에서 배포합니다. 그래서 모든 검
 
 ---
 
-## 4. 비용 (Workers Free)
+## 4. 비용 (Workers Paid, 월 $5)
 
 | 서비스 | 무료 한도 | 템플릿 사용량 |
 |---|---|---|
-| Workers | 하루 요청 10만 번, 요청당 CPU 10ms | CPU 참고 |
+| Workers | Paid: 월 요청 1,000만 번, CPU 3,000만 ms 포함, 요청당 CPU 30초 | Django 요청당 CPU 약 60ms: 월 약 50만 요청 |
 | D1 | 하루 읽기 500만 행, 쓰기 10만 행, 5GB | 요청당 로그 1행 |
 | Vectorize | 월 조회 3,000만 차원, 저장 500만 차원 | 가이드 섹션당 약 1,024차원 |
 | Workers AI | 하루 10,000 Neurons | bge-m3 100만 토큰당 약 1,075 Neurons, Llama 70B 하루 출력 약 4.8만 토큰 |
 | Static Assets | 정적 요청 무료·무제한 | - |
 
-유료 플랜이 필요하면: 월 $5 (요청 1,000만 번, CPU 3,000만 ms, D1 읽기 250억 행, Vectorize 조회 5,000만 차원 포함).
+표의 다른 행은 무료 한도입니다. Paid에서는 D1 월 읽기 250억 행·쓰기 5,000만 행, Vectorize 조회 5,000만·저장 1,000만 차원으로 늘어납니다.
 
 ---
 

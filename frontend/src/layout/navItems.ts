@@ -16,5 +16,5 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Book Search', to: '/', icon: SearchOutlined },
   { label: 'User Guide', to: '/guide', icon: MenuBookOutlined },
   { label: 'Logs & Monitoring', to: '/logs', icon: MonitorHeartOutlined },
-  { label: 'Coverage', to: '/coverage/', icon: FactCheckOutlined, external: true },
+  { label: 'Coverage', to: '/coverage', icon: FactCheckOutlined },
 ];

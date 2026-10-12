@@ -21,7 +21,7 @@ describe('AppLayout', () => {
     renderAt(<App />, '/guide');
     await userEvent.click(screen.getByRole('button', { name: 'Open menu' }));
     expect(screen.getByRole('link', { name: 'User Guide' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: 'Coverage' })).toHaveAttribute('href', '/coverage/');
+    expect(screen.getByRole('link', { name: 'Coverage' })).toHaveAttribute('href', '/coverage');
   });
 
   it('shows the not found page for unknown routes', () => {

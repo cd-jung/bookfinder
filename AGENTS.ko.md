@@ -18,7 +18,7 @@
 | 로그 | 모든 API 요청 -> Workers Logs(stdout)와 `RequestLog` 테이블 |
 | 테스트 | pytest + pytest-django, Vitest + Testing Library, Playwright(UX flow 시나리오) |
 | CI/CD | GitHub Actions: 모든 push / PR에서 검증, `main`이면 배포 |
-| 요금제 | Cloudflare **Workers Free**. 요청당 CPU를 낮게 유지(Django 앱 수 최소화, 무거운 import 금지) |
+| 요금제 | Cloudflare **Workers Paid**(월 $5): Django는 요청당 CPU 약 60ms로 무료 한도 10ms를 넘음. 그래도 낮게 유지(앱 수 최소화, 무거운 import 금지) |
 
 ## 2. 저장소 구조
 
@@ -163,7 +163,7 @@ scripts/                     check-consistency, new-project, build-site, dev, un
 | `npm run test:e2e` | 로컬 스택에 Playwright 실행 |
 | `npm run check` | 정합성 검사 (`-- --strict`를 붙이면 core 시나리오 누락 시 실패) |
 | `npm run coverage` | 터미널에 E2E 시나리오 커버리지 출력 |
-| `npm run build:site` | 앱 + `/coverage/` 리포트 + `/ux-flows/` 뷰어를 `frontend/dist`에 빌드 |
+| `npm run build:site` | 앱 + 커버리지 리포트(`/coverage`에 표시) + `/ux-flows/` 뷰어를 `frontend/dist`에 빌드 |
 | `npm run migrations` | Django 마이그레이션 + D1 SQL 내보내기 |
 | `npm run verify` | 배포 전에 CI가 돌리는 전부 |
 

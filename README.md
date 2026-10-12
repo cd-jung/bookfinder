@@ -15,7 +15,7 @@ Built from this template on 2026-10-12, following `poc_samples.zip` (UX flows, E
 |---|---|
 | App | https://bookfinder.kookastudios.workers.dev |
 | API | https://bookfinder-api.kookastudios.workers.dev/api/health |
-| Coverage | https://bookfinder.kookastudios.workers.dev/coverage/ |
+| Coverage | https://bookfinder.kookastudios.workers.dev/coverage |
 | Data | 10,000 generated books (`backend/src/books/seed.py`, deterministic; a few real titles as anchors, all prices/stock fictional) |
 | Tests | 114 E2E scenarios (43 core, 100% covered), backend + frontend unit tests |
 
@@ -26,8 +26,8 @@ Project decisions on top of the template:
 | Chatbot | The spec's "Ask the librarian" became the **Help** assistant: RAG over the User Guide only, short answer + links | User decision: the chatbot explains how to use the service; book data stays out of Vectorize |
 | Removed scenarios | `DET-007` (ask about this book), `CHAT-008` (book context chip), `CHAT-010` (recommended books), `GRD-004` (stale prices), `SAFE-003` (instructions in book descriptions) | They only make sense for a catalogue chatbot |
 | Changed scenarios | `CHAT-002` no token streaming (answer appears whole; `CHAT-006` Stop cancels the request), `CHAT-007` follow-up = previous question added to retrieval, `GRD-005` Korean answers checked on the deployed site (`@real`) | Python Workers + Workers AI answer in one response; the stub cannot translate |
-| Data model | One wide `Book` table; authors / genres / formats as `\|a\|b\|` token text instead of join tables | D1 free plan: 100k rows written/day (seeding uses about 51k) |
-| Read budget | Each search reads up to ~20k D1 rows (one pass for total + facet counts, one for the page) | About 250 searches/day on the 5M rows/day free allowance; enough for a demo |
+| Data model | One wide `Book` table; authors / genres / formats as `\|a\|b\|` token text instead of join tables | Designed for the D1 free plan's 100k rows written/day (seeding uses about 51k); kept on Paid because it is fast and simple |
+| Read budget | Each search reads up to ~20k D1 rows (one pass for total + facet counts, one for the page) | About 1.25M searches/month within the Paid plan's 25B rows read |
 | NL guard rails | No Postgres read-only transaction / statement timeout on D1; queries are ORM `filter()` only, the filter is validated twice, and a slow response shows "Search took too long" | D1 has no `SET LOCAL` |
 | Rate limits | 10 questions/minute per client on `/api/nl-search/translate` and `/api/rag/answers` (429 with Retry-After), counted in `RequestLog` | Shared across Worker isolates without another service; off in local E2E (`RATE_LIMITS=0`) |
 | Seeding | CD step `scripts/seed_d1.sh` loads the books once, only while `books_book` is empty | Avoids repeated writes |
@@ -48,7 +48,7 @@ secret from the macOS Keychain, and pushes. The push runs CI/CD, which tests and
 |---|---|
 | App | `https://my-app.kookastudios.workers.dev` |
 | API | `https://my-app-api.kookastudios.workers.dev/api/health` |
-| Coverage | `https://my-app.kookastudios.workers.dev/coverage/` |
+| Coverage | `https://my-app.kookastudios.workers.dev/coverage` |
 | UX flows | `https://my-app.kookastudios.workers.dev/ux-flows/` |
 
 Then open the new folder in Claude Code and build features with `/feature <description>`.
@@ -61,7 +61,7 @@ Add `--public` to make the GitHub repo public.
 | 0-5 min | `new-project.sh`, open the folder in Claude Code, `gh run watch` the first deploy |
 | 5-10 min | Agree the feature list with the interviewer; first feature's UX flow + scenarios |
 | 10-50 min | One `/feature` per capability; `npm run verify` locally; push after each feature (CI deploys) |
-| 50-60 min | Show the live app, `/coverage/`, the Logs dashboard and the Help assistant; walk through AGENTS.md |
+| 50-60 min | Show the live app, `/coverage`, the Logs dashboard and the Help assistant; walk through AGENTS.md |
 
 ---
 
@@ -99,12 +99,11 @@ tells agents to ask before changing any of these.
 | Frontend hosting | **Workers Static Assets** (own Worker, `frontend/wrangler.jsonc`) | R2 bucket + domain; legacy Pages | Planned as Pages; on 2026-10-12 wrangler 4.149 redirected Pages to "the latest version of Cloudflare Pages, now part of Cloudflare Workers", so the user chose Static Assets. SPA fallback, CDN, free unlimited static requests; R2 alone needs manual rules. R2 is for user files |
 | Backend | **Django on Python Workers** (WSGI via `django-cf`) | FastAPI on Python Workers; Hono + Drizzle (TypeScript); Django in **Cloudflare Containers** | Django kept on purpose. Containers need Workers Paid ($5/month) and Docker. FastAPI has no D1 ORM. Hono + Drizzle is the fallback if CPU limits bite |
 | Containers | **Not used** | Cloudflare Containers | Workers run in V8 isolates (Pyodide for Python), not containers |
-| Plan | **Workers Free** | Workers Paid $5/month | User decision: stay free. See the CPU note below |
+| Plan | **Workers Paid** ($5/month) | Workers Free | Started on Free (user decision); on 2026-10-12 the API hit Cloudflare error 1102 (CPU limit) under normal use, so the user upgraded. Paid allows 30 s CPU per request (up to 5 min) and includes 30M CPU ms/month |
 
-**CPU note (measured 2026-10-12):** a Django + D1 spike with 10,000 rows ran on the free plan
-(~0.2-0.3 s per request, ~2 s cold start) but used **50-64 ms CPU per request**, above the free
-plan's 10 ms limit. Cloudflare tolerated it at low traffic. If requests start failing with
-"exceeded CPU", either upgrade to Workers Paid or move the API to Hono + Drizzle.
+**CPU note (measured 2026-10-12):** Django on Python Workers uses **50-64 ms CPU per request** (~2 s cold
+start). The free plan allows 10 ms: it worked at first, then Cloudflare started rejecting requests with
+error 1102, so this template now assumes **Workers Paid**. To run on Free, move the API to Hono + Drizzle.
 
 ### Data
 
@@ -167,17 +166,17 @@ unless every check passed. The coverage page is rebuilt on every deploy.
 
 ---
 
-## 4. Cost (Workers Free)
+## 4. Cost (Workers Paid, $5/month)
 
 | Service | Free allowance | Template usage |
 |---|---|---|
-| Workers | 100,000 requests/day, 10 ms CPU/request | see CPU note |
+| Workers | Paid: 10M requests and 30M CPU ms/month included, 30 s CPU/request | ~60 ms CPU per Django request: about 500k requests/month |
 | D1 | 5M rows read/day, 100k rows written/day, 5 GB | one log row per request |
 | Vectorize | 30M queried dims/month, 5M stored dims | ~1,024 dims per guide section |
 | Workers AI | 10,000 Neurons/day | bge-m3 ~1,075 Neurons per 1M tokens; Llama 70B ~48k output tokens/day |
 | Static Assets | static requests free and unlimited | - |
 
-Paid plan, if ever needed: $5/month (includes 10M requests, 30M CPU ms, 25B D1 reads, 50M Vectorize queried dims).
+The table's other rows show the free allowances; on Paid they rise to 25B D1 rows read and 50M written per month, 50M Vectorize queried and 10M stored dimensions.
 
 ---
 

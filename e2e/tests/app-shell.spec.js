@@ -12,7 +12,7 @@ test.describe('App shell & navigation', () => {
     await expect(page.getByRole('button', { name: 'Help' })).toBeVisible();
   });
 
-  test('[SHELL-002] menu entries open their pages; Coverage links to the static report', async ({ page }) => {
+  test('[SHELL-002] menu entries open their pages; Coverage shows the report inside the layout', async ({ page }) => {
     await page.goto('/');
     const menu = page.getByRole('navigation', { name: 'Main menu' });
     await menu.getByRole('link', { name: 'User Guide' }).click();
@@ -21,7 +21,15 @@ test.describe('App shell & navigation', () => {
     await expect(page.getByRole('heading', { name: 'Logs & Monitoring' })).toBeVisible();
     await menu.getByRole('link', { name: 'Book Search' }).click();
     await expect(page).toHaveURL(/\/$/);
-    await expect(menu.getByRole('link', { name: 'Coverage' })).toHaveAttribute('href', '/coverage/');
+    await page.route('**/reports/coverage.html', (route) =>
+      route.fulfill({ contentType: 'text/html', body: '<html><head><meta name="generator" content="coverage-report"></head><body><h1>Report body</h1></body></html>' })
+    );
+    await menu.getByRole('link', { name: 'Coverage' }).click();
+    await expect(page).toHaveURL(/\/coverage$/);
+    await expect(page.getByRole('heading', { name: 'Coverage', level: 1 })).toBeVisible();
+    await expect(page.getByRole('banner')).toBeVisible();
+    await expect(menu.getByRole('link', { name: 'Coverage' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.frameLocator('[data-testid="coverage-frame"]').getByRole('heading', { name: 'Report body' })).toBeVisible();
   });
 
   test('[SHELL-003] @mobile the menu button opens the drawer', async ({ page }) => {
