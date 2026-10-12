@@ -5,6 +5,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from core import llm
+from core.i18n import normalize
 from core.ratelimit import rate_limited
 from rag.service import QuestionError, answer
 
@@ -19,7 +20,7 @@ def answers(request):
         return JsonResponse({"detail": "Request body must be JSON"}, status=400)
     try:
         history = body.get("history") if isinstance(body.get("history"), list) else None
-        return JsonResponse(answer(body.get("question"), history))
+        return JsonResponse(answer(body.get("question"), history, normalize(body.get("lang"))))
     except QuestionError as exc:
         return JsonResponse({"detail": str(exc)}, status=400)
     except llm.LLMError as exc:

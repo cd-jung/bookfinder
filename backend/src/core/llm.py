@@ -117,7 +117,7 @@ def vector_query(vector, top_k):
     env = workers_env()
     if env is None or not hasattr(env, "VECTORIZE"):
         raise LLMUnavailableError("Vectorize binding is not configured.")
-    result = _py(run_sync(env.VECTORIZE.query(_js(vector), _js({"topK": top_k, "returnMetadata": "all"}))))
+    result = _py(run_sync(env.VECTORIZE.query(_js(vector), _js({"topK": top_k, "returnMetadata": "none"}))))
     return [
         {"id": m.get("id"), "score": float(m.get("score", 0)), "metadata": m.get("metadata") or {}}
         for m in result.get("matches", [])

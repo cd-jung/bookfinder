@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Box, Stack, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import type { HourSlot } from './api';
 
 /**
@@ -16,14 +17,16 @@ const cssVars = {
   '[data-mui-color-scheme="dark"] &, .dark &': { '--viz-ok': '#3987e5' },
 };
 
-function hourLabel(iso: string) {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+function hourLabel(iso: string, lang?: string) {
+  return new Date(iso).toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' });
 }
 
 export default function RequestsChart({ data }: { data: HourSlot[] }) {
   const [hover, setHover] = useState<number | null>(null);
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
   if (!data.length) {
-    return <Typography color="text.secondary">No requests in this time range.</Typography>;
+    return <Typography color="text.secondary">{t('logs.chart.empty')}</Typography>;
   }
   const max = Math.max(...data.map((d) => d.requests), 1);
   const slot = 100 / data.length;
@@ -34,14 +37,14 @@ export default function RequestsChart({ data }: { data: HourSlot[] }) {
       <Stack direction="row" spacing={2} sx={{ mb: 1 }} aria-hidden="true">
         <Stack sx={{ alignItems: 'center' }} direction="row" spacing={0.75}>
           <Box sx={{ width: 10, height: 10, borderRadius: '2px', bgcolor: 'var(--viz-ok)' }} />
-          <Typography variant="caption" color="text.secondary">Requests</Typography>
+          <Typography variant="caption" color="text.secondary">{t('logs.chart.legendRequests')}</Typography>
         </Stack>
         <Stack sx={{ alignItems: 'center' }} direction="row" spacing={0.75}>
           <Box sx={{ width: 10, height: 10, borderRadius: '2px', bgcolor: 'var(--viz-error)' }} />
-          <Typography variant="caption" color="text.secondary">Server errors (5xx)</Typography>
+          <Typography variant="caption" color="text.secondary">{t('logs.chart.legendErrors')}</Typography>
         </Stack>
         <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto !important' }}>
-          max {max} / hour
+          {t('logs.chart.max', { count: max })}
         </Typography>
       </Stack>
       <Box sx={{ position: 'relative' }}>
@@ -88,24 +91,24 @@ export default function RequestsChart({ data }: { data: HourSlot[] }) {
               pointerEvents: 'none',
             }}
           >
-            <Typography variant="caption" component="div">{hourLabel(active.hour)}</Typography>
-            <Typography variant="caption" component="div">{active.requests} requests</Typography>
-            <Typography variant="caption" component="div">{active.errors} server errors</Typography>
+            <Typography variant="caption" component="div">{hourLabel(active.hour, lang)}</Typography>
+            <Typography variant="caption" component="div">{t('logs.chart.tooltipRequests', { count: active.requests })}</Typography>
+            <Typography variant="caption" component="div">{t('logs.chart.tooltipErrors', { count: active.errors })}</Typography>
           </Box>
         )}
       </Box>
       <Stack sx={{ justifyContent: 'space-between' }} direction="row" aria-hidden="true">
-        <Typography variant="caption" color="text.secondary">{hourLabel(data[0].hour)}</Typography>
-        <Typography variant="caption" color="text.secondary">{hourLabel(data[data.length - 1].hour)}</Typography>
+        <Typography variant="caption" color="text.secondary">{hourLabel(data[0].hour, lang)}</Typography>
+        <Typography variant="caption" color="text.secondary">{hourLabel(data[data.length - 1].hour, lang)}</Typography>
       </Stack>
       <table className="visually-hidden" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
-        <caption>Requests and server errors per hour</caption>
+        <caption>{t('logs.chart.caption')}</caption>
         <thead>
-          <tr><th>Hour</th><th>Requests</th><th>Server errors</th></tr>
+          <tr><th>{t('logs.chart.hour')}</th><th>{t('logs.chart.legendRequests')}</th><th>{t('logs.chart.legendErrors')}</th></tr>
         </thead>
         <tbody>
           {data.map((d) => (
-            <tr key={d.hour}><td>{hourLabel(d.hour)}</td><td>{d.requests}</td><td>{d.errors}</td></tr>
+            <tr key={d.hour}><td>{hourLabel(d.hour, lang)}</td><td>{d.requests}</td><td>{d.errors}</td></tr>
           ))}
         </tbody>
       </table>

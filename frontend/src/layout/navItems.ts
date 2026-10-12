@@ -5,7 +5,8 @@ import MonitorHeartOutlined from '@mui/icons-material/MonitorHeartOutlined';
 import FactCheckOutlined from '@mui/icons-material/FactCheckOutlined';
 
 export interface NavItem {
-  label: string;
+  /** i18n key */
+  labelKey: string;
   to: string;
   icon: SvgIconComponent;
   /** Static page served next to the app (not a client route). */
@@ -13,8 +14,8 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: 'Book Search', to: '/', icon: SearchOutlined },
-  { label: 'User Guide', to: '/guide', icon: MenuBookOutlined },
-  { label: 'Logs & Monitoring', to: '/logs', icon: MonitorHeartOutlined },
-  { label: 'Coverage', to: '/coverage', icon: FactCheckOutlined },
+  { labelKey: 'nav.search', to: '/', icon: SearchOutlined },
+  { labelKey: 'nav.guide', to: '/guide', icon: MenuBookOutlined },
+  { labelKey: 'nav.logs', to: '/logs', icon: MonitorHeartOutlined },
+  { labelKey: 'nav.coverage', to: '/coverage', icon: FactCheckOutlined },
 ];

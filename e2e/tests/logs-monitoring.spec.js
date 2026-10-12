@@ -30,7 +30,7 @@ test.describe('Logs & Monitoring', () => {
     await expect(page.getByRole('status')).toContainText('Interpreted as: (status class(class=4xx) OR status class(class=5xx))');
     const statuses = page.getByTestId('log-status');
     await expect(statuses.first()).toBeVisible();
-    for (const text of await statuses.allInnerTexts()) expect(Number(text)).toBeGreaterThanOrEqual(400);
+    await expect.poll(async () => (await statuses.allInnerTexts()).every((text) => Number(text) >= 400)).toBe(true);
   });
 
   test('[LOGS-003] a question that is not about logs asks to rephrase', async ({ page }) => {

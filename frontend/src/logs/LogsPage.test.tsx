@@ -40,6 +40,7 @@ function makeApi(overrides: Partial<LogsApi> = {}): LogsApi {
     stats: vi.fn().mockResolvedValue(stats),
     list: vi.fn().mockResolvedValue({ total: 2, page: 1, pages: 1, results: [row(1), row(2, 503)] }),
     translate: vi.fn().mockResolvedValue({ filter: { field: 'status_code', op: 'gte', value: 500 }, description: 'status at least 500' }),
+    examples: vi.fn().mockResolvedValue({ examples: ['errors in the last hour', 'slow requests over 500ms'] }),
     ...overrides,
   };
 }
@@ -65,7 +66,7 @@ describe('LogsPage', () => {
   it('example chips run their question', async () => {
     const api = makeApi();
     renderAt(<LogsPage api={api} />);
-    await userEvent.click(screen.getByRole('button', { name: 'errors in the last hour' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'errors in the last hour' }));
     expect(api.translate).toHaveBeenCalledWith('errors in the last hour');
   });
 
@@ -124,7 +125,7 @@ describe('LogsPage', () => {
 describe('RequestsChart', () => {
   it('renders a legend, an accessible table and a hover tooltip', async () => {
     const { container } = renderAt(<RequestsChart data={stats.perHour} />);
-    expect(screen.getByText('Server errors (5xx)')).toBeInTheDocument();
+    expect(screen.getAllByText('Server errors (5xx)').length).toBeGreaterThan(0);
     const table = screen.getByRole('table', { hidden: true });
     expect(within(table).getAllByRole('row', { hidden: true })).toHaveLength(3);
     const hitAreas = container.querySelectorAll('rect[fill="transparent"]');

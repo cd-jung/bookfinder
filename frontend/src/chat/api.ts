@@ -3,11 +3,6 @@ import type { Source } from './useChatStore';
 
 export const MAX_QUESTION = 1000;
 export const TIMEOUT_MS = 30_000;
-export const SUGGESTED_QUESTIONS = [
-  'How do I search in plain language?',
-  'How do I filter by price?',
-  'How do I see if a book is in stock?',
-];
 
 export interface AnswerResponse {
   answer: string;

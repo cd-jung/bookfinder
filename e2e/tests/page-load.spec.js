@@ -30,7 +30,7 @@ test.describe('Page load & layout', () => {
 
   test('[PAGE-004] facet load failure shows the error banner; Retry recovers', async ({ page }) => {
     let fail = true;
-    await page.route('**/api/books/facets', (route) => (fail ? route.fulfill({ status: 500, json: { detail: 'down' } }) : route.continue()));
+    await page.route('**/api/books/facets*', (route) => (fail ? route.fulfill({ status: 500, json: { detail: 'down' } }) : route.continue()));
     await page.goto('/');
     await expect(page.getByText('Could not load the catalogue filters.')).toBeVisible();
     fail = false;

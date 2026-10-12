@@ -2,7 +2,8 @@ import { useEffect, type ReactNode } from 'react';
 import { Link as RouterLink, useLocation, useParams } from 'react-router-dom';
 import Markdown from 'react-markdown';
 import { Alert, Box, Link, List, ListItem, ListItemButton, ListItemText, Paper, Stack, Typography } from '@mui/material';
-import { GUIDE_PAGES } from './pages';
+import { useTranslation } from 'react-i18next';
+import { guidePages } from './pages';
 import { slugify } from './slug';
 
 function textOf(node: ReactNode): string {
@@ -26,19 +27,21 @@ const heading =
 export default function GuidePage() {
   const { page } = useParams();
   const { hash } = useLocation();
-  const current = page ? GUIDE_PAGES.find((p) => p.slug === page) : GUIDE_PAGES[0];
+  const { t, i18n } = useTranslation();
+  const pages = guidePages(i18n.language);
+  const current = page ? pages.find((p) => p.slug === page) : pages[0];
 
   useEffect(() => {
     const target = hash ? document.getElementById(decodeURIComponent(hash.slice(1))) : null;
     if (target) target.scrollIntoView?.({ block: 'start' });
     else window.scrollTo?.(0, 0);
-  }, [hash, current?.slug]);
+  }, [hash, current?.slug, i18n.language]);
 
   return (
     <Stack sx={{ alignItems: 'flex-start' }} direction={{ xs: 'column', md: 'row' }} spacing={3}>
-      <Paper variant="outlined" component="nav" aria-label="User Guide pages" sx={{ width: { xs: '100%', md: 240 }, flexShrink: 0 }}>
+      <Paper variant="outlined" component="nav" aria-label={t('guide.pages')} sx={{ width: { xs: '100%', md: 240 }, flexShrink: 0 }}>
         <List dense>
-          {GUIDE_PAGES.map((p) => (
+          {pages.map((p) => (
             <ListItem key={p.slug} disablePadding>
             <ListItemButton
               component={RouterLink}
@@ -52,7 +55,7 @@ export default function GuidePage() {
           ))}
         </List>
       </Paper>
-      <Box component="article" sx={{ flex: 1, minWidth: 0, '& li': { mb: 0.5 } }} data-testid="guide-article">
+      <Box component="article" lang={i18n.language} sx={{ flex: 1, minWidth: 0, '& li': { mb: 0.5 } }} data-testid="guide-article">
         {current ? (
           <Markdown
             skipHtml
@@ -77,7 +80,7 @@ export default function GuidePage() {
             {current.content}
           </Markdown>
         ) : (
-          <Alert severity="warning">This User Guide page does not exist.</Alert>
+          <Alert severity="warning">{t('guide.missing')}</Alert>
         )}
       </Box>
     </Stack>

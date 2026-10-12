@@ -13,7 +13,14 @@ from core import llm
 from rag.models import GuideChunk
 
 MAX_QUESTION_LENGTH = 1000
-NO_CONTEXT_ANSWER = "I couldn't find that in the User Guide. Try the User Guide menu or rephrase your question."
+NO_CONTEXT_ANSWERS = {
+    "en": "I couldn't find that in the User Guide. Try the User Guide menu or rephrase your question.",
+    "es": "No encontré eso en la Guía del usuario. Consulta el menú Guía del usuario o reformula tu pregunta.",
+    "fr": "Je n'ai pas trouvé cela dans le Guide de l'utilisateur. Consultez le menu Guide de l'utilisateur ou reformulez votre question.",
+    "ko": "사용자 가이드에서 찾지 못했어요. 사용자 가이드 메뉴를 확인하거나 질문을 다르게 해 보세요.",
+}
+NO_CONTEXT_ANSWER = NO_CONTEXT_ANSWERS["en"]
+VECTOR_CANDIDATES = 20  # every language is in one index: fetch more, keep the UI language
 STOP_WORDS = set(
     "a about also an and any are be but can could do does for from how i if in is it me my of on or so some that the this to was what when where which who why will with would you your".split()
 )
@@ -38,7 +45,7 @@ class QuestionError(ValueError):
     pass
 
 
-def language_rule(question):
+def language_rule(question, lang="en"):
     """Models tend to answer in the language of the contexts (English), so name the question's language."""
     if re.search(r"[\uac00-\ud7a3]", question):
         return "Write the whole answer in Korean (한국어), even though the sections are in English."
@@ -46,10 +53,48 @@ def language_rule(question):
         return "Write the whole answer in Japanese (日本語), even though the sections are in English."
     if re.search(r"[\u4e00-\u9fff]", question):
         return "Write the whole answer in Chinese (中文), even though the sections are in English."
+    if lang != "en":
+        from core.i18n import NAMES
+
+        return f"Write the whole answer in {NAMES[lang]}, the language the user reads the app in."
     return "Answer in the same language as the question."
 
 
+KO_STOP = set("어떻게 무엇 뭐 어디 언제 왜 방법 수 있나 있어 하나 하 되나 알려 주세 해 줘".split())
+KO_ENDINGS = (
+    "하나요",
+    "하나",
+    "나요",
+    "해요",
+    "할까요",
+    "되나요",
+    "인가요",
+    "에서는",
+    "에서",
+    "으로",
+    "은",
+    "는",
+    "이",
+    "가",
+    "을",
+    "를",
+    "에",
+    "로",
+    "도",
+    "만",
+    "와",
+    "과",
+    "요",
+)
+
+
 def _stem(word):
+    if re.search(r"[\uac00-\ud7a3]", word):
+        # Korean: drop particles and polite verb endings so "필터는" / "확인하나요" match "필터" / "확인".
+        for ending in KO_ENDINGS:
+            if word.endswith(ending) and len(word) > len(ending):
+                return word[: -len(ending)]
+        return word
     for suffix in ("ing", "es", "s"):
         if word.endswith(suffix) and len(word) - len(suffix) >= 3:
             return word[: -len(suffix)]
@@ -57,27 +102,28 @@ def _stem(word):
 
 
 def _words(text):
-    return {_stem(w) for w in re.findall(r"\w+", text.lower()) if len(w) > 1 and w not in STOP_WORDS}
+    words = {_stem(w) for w in re.findall(r"\w+", text.lower()) if w not in STOP_WORDS}
+    return {w for w in words if w and w not in KO_STOP and (len(w) > 1 or re.match(r"[\uac00-\ud7a3]", w))}
 
 
-def retrieve(question):
-    """Return [(chunk, similarity)] above the threshold, best first."""
+def retrieve(question, lang="en"):
+    """Return [(chunk, similarity)] from the `lang` User Guide above the threshold, best first."""
     if llm.mode() == "stub":
-        return _lexical(question)
-    matches = llm.vector_query(llm.embed([question])[0], settings.RAG_TOP_K)
+        return _lexical(question, lang)
+    matches = llm.vector_query(llm.embed([question])[0], VECTOR_CANDIDATES)
     ids = [m["id"] for m in matches if m["score"] >= settings.RAG_MINIMUM_SIMILARITY]
-    chunks = GuideChunk.objects.in_bulk(ids)
+    chunks = GuideChunk.objects.filter(lang=lang).in_bulk(ids)
     scores = {m["id"]: m["score"] for m in matches}
-    return [(chunks[i], round(scores[i], 4)) for i in ids if i in chunks]
+    return [(chunks[i], round(scores[i], 4)) for i in ids if i in chunks][: settings.RAG_TOP_K]
 
 
-def _lexical(question, threshold=0.5):
+def _lexical(question, lang="en", threshold=0.5):
     """Deterministic stand-in for vector search (LLM_MODE=stub): share of question words found."""
     asked = _words(question)
     if not asked:
         return []
     scored = []
-    for chunk in GuideChunk.objects.all():
+    for chunk in GuideChunk.objects.filter(lang=lang):
         found = asked & _words(f"{chunk.section} {chunk.content}")
         in_heading = asked & _words(chunk.section)
         share = len(found) / len(asked)
@@ -114,7 +160,7 @@ def _merge(*result_lists):
     return sorted(best.values(), key=lambda pair: -pair[1])[: settings.RAG_TOP_K]
 
 
-def answer(question, history=None):
+def answer(question, history=None, lang="en"):
     """history: earlier user questions of this conversation, oldest first (follow-up questions)."""
     if not isinstance(question, str) or not question.strip():
         raise QuestionError("question is required")
@@ -123,12 +169,13 @@ def answer(question, history=None):
     llm.ensure_available()
     question = question.strip()
     previous = [h.strip()[:MAX_QUESTION_LENGTH] for h in (history or []) if isinstance(h, str) and h.strip()][-2:]
-    results = retrieve(question)
+    no_context = NO_CONTEXT_ANSWERS.get(lang, NO_CONTEXT_ANSWER)
+    results = retrieve(question, lang)
     if previous:
         # A follow-up ("and on mobile?") is searched together with the question before it.
-        results = _merge(results, retrieve(f"{previous[-1]} {question}"))
+        results = _merge(results, retrieve(f"{previous[-1]} {question}", lang))
     if not results:
-        return {"answer": NO_CONTEXT_ANSWER, "sources": [], "has_sufficient_context": False}
+        return {"answer": no_context, "sources": [], "has_sufficient_context": False}
     if llm.mode() == "stub":
         text = _stub_answer(results)
     else:
@@ -138,8 +185,8 @@ def answer(question, history=None):
             llm.generate(
                 PROMPT.format(
                     app=settings.APP_NAME,
-                    no_context=NO_CONTEXT_ANSWER,
-                    language_rule=language_rule(question),
+                    no_context=no_context,
+                    language_rule=language_rule(question, lang),
                     contexts=contexts,
                     question=asked,
                 )

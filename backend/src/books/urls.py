@@ -8,4 +8,5 @@ urlpatterns = [
     path("books/<int:book_id>", views.book_detail),
     path("authors", views.authors),
     path("nl-search/translate", views.nl_translate),
+    path("nl-search/examples", views.nl_examples),
 ]

@@ -60,6 +60,7 @@ export const logsApi = {
     }),
   stats: (hours: number) => getJson<LogStats>('/api/logs/stats', { hours }),
   translate: (question: string) => postJson<Translation>('/api/logs/nl-search/translate', { question }),
+  examples: () => getJson<{ examples: string[] }>('/api/logs/nl-search/examples'),
 };
 
 export type LogsApi = typeof logsApi;

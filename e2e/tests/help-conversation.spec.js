@@ -162,7 +162,7 @@ test.describe('Errors', () => {
     await page.goto('/');
     const chat = await openHelp(page);
     await ask(chat, 'How do I sort results?');
-    await expect(chat.getByTestId('chat-error')).toContainText('The AI service is unavailable.');
+    await expect(chat.getByTestId('chat-error')).toContainText('The assistant is unavailable. Please try again later.');
     await page.unrouteAll({ behavior: 'ignoreErrors' });
     await chat.getByRole('button', { name: 'Retry' }).click();
     await expect(chat.getByTestId('chat-answer')).toHaveCount(1);

@@ -9,8 +9,9 @@ from django.views.decorators.http import require_GET, require_POST
 
 from books.catalog import BOOK_CATALOG
 from books.models import FORMATS, GENRES, LANGUAGES, Author, Book
+from core.i18n import request_lang
 from core.ratelimit import rate_limited
-from nlsearch.views import filter_from_request, translate_response
+from nlsearch.views import examples_response, filter_from_request, translate_response
 
 PAGE_SIZE = 20
 SORTS = {
@@ -187,7 +188,7 @@ def book_list(request):
 
 
 @require_GET
-def book_detail(_request, book_id):
+def book_detail(request, book_id):
     book = Book.objects.filter(pk=book_id).first()
     if book is None:
         return JsonResponse({"detail": "Book not found"}, status=404)
@@ -199,7 +200,7 @@ def book_detail(_request, book_id):
             subject_q |= Q(subjects_text__contains=f"|{subject}|")
         similar_q &= subject_q
     similar = Book.objects.filter(similar_q).order_by("-popularity")[:8]
-    return JsonResponse({**book.as_detail(), "similar": [b.as_card() for b in similar]})
+    return JsonResponse({**book.as_detail(request_lang(request)), "similar": [b.as_card() for b in similar]})
 
 
 @require_GET
@@ -216,3 +217,8 @@ def authors(request):
 @rate_limited(10)
 def nl_translate(request):
     return translate_response(BOOK_CATALOG, request)
+
+
+@require_GET
+def nl_examples(request):
+    return examples_response(BOOK_CATALOG, request)

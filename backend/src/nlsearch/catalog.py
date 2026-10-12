@@ -28,6 +28,74 @@ OPERATOR_WORDS = {
     "lte": "at most",
 }
 
+# "Interpreted as" phrases per language. {label} = field label, {v} = value (with the field's unit).
+PHRASES = {
+    "en": {
+        "eq": "{label} is {v}",
+        "icontains": "{label} contains {v}",
+        "in": "{label} is one of {v}",
+        "gt": "{label} over {v}",
+        "gte": "{label} {v} or more",
+        "lt": "{label} under {v}",
+        "lte": "{label} {v} or less",
+        "empty": "{label} is empty",
+        "not_empty": "{label} is not empty",
+        "true": "{label}",
+        "false": "not {label}",
+        "and": " AND ",
+        "or": " OR ",
+        "not": "NOT {x}",
+    },
+    "es": {
+        "eq": "{label} es {v}",
+        "icontains": "{label} contiene {v}",
+        "in": "{label} es uno de {v}",
+        "gt": "{label} mayor que {v}",
+        "gte": "{label} {v} o más",
+        "lt": "{label} menor que {v}",
+        "lte": "{label} {v} o menos",
+        "empty": "{label} está vacío",
+        "not_empty": "{label} no está vacío",
+        "true": "{label}",
+        "false": "no {label}",
+        "and": " Y ",
+        "or": " O ",
+        "not": "NO {x}",
+    },
+    "fr": {
+        "eq": "{label} est {v}",
+        "icontains": "{label} contient {v}",
+        "in": "{label} parmi {v}",
+        "gt": "{label} supérieur à {v}",
+        "gte": "{label} {v} ou plus",
+        "lt": "{label} inférieur à {v}",
+        "lte": "{label} {v} ou moins",
+        "empty": "{label} est vide",
+        "not_empty": "{label} n'est pas vide",
+        "true": "{label}",
+        "false": "pas {label}",
+        "and": " ET ",
+        "or": " OU ",
+        "not": "NON {x}",
+    },
+    "ko": {
+        "eq": "{label}: {v}",
+        "icontains": "{label}에 {v} 포함",
+        "in": "{label}: {v} 중 하나",
+        "gt": "{label} {v} 초과",
+        "gte": "{label} {v} 이상",
+        "lt": "{label} {v} 미만",
+        "lte": "{label} {v} 이하",
+        "empty": "{label} 없음",
+        "not_empty": "{label} 있음",
+        "true": "{label}",
+        "false": "{label} 아님",
+        "and": " 그리고 ",
+        "or": " 또는 ",
+        "not": "{x} 아님",
+    },
+}
+
 
 @dataclass
 class Field:
@@ -44,13 +112,15 @@ class Field:
     type: str
     path: str
     description: str
-    label: str = ""
+    label: str | dict = ""  # plain text, or {lang: text}
     choices: list | dict | None = None
     operators: set | None = None
     exists_in: object = None
     exists_ref: str = ""
     tokens: bool = False
-    describe: object = None  # optional (op, value) -> text for "Interpreted as"
+    describe: object = None  # optional (op, value, lang) -> text for "Interpreted as"
+    unit: str = ""  # shown before numbers, e.g. "$"
+    value_labels: dict | None = None  # {lang: {stored value: label}} for enums in other languages
 
     def allowed_operators(self):
         return self.operators or OPERATORS[self.type]
@@ -67,7 +137,7 @@ class Template:
     description: str
     params: dict
     build: object
-    label: str = ""
+    label: str | dict = ""  # plain text, or {lang: text}
 
 
 @dataclass

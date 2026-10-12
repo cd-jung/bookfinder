@@ -150,7 +150,7 @@ test.describe('Accessibility', () => {
       ['button', 'Grid view'],
       ['button', 'List view'],
     ]) {
-      await expect(page.getByRole(role, { name })).toBeVisible();
+      await expect(page.getByRole(role, { name, exact: true })).toBeVisible();
     }
     const unnamed = await page.evaluate(() =>
       [...document.querySelectorAll('button, [role="img"], input')]

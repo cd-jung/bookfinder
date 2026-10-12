@@ -69,6 +69,7 @@ export const booksApi = {
   detail: (id: number) => getJson<BookDetail>(`/api/books/${id}`),
   authors: (q: string) => getJson<{ results: string[] }>('/api/authors', { q }),
   translate: (question: string) => postJson<Translation>('/api/nl-search/translate', { question }),
+  examples: () => getJson<{ examples: string[] }>('/api/nl-search/examples'),
 };
 
 export type BooksApi = typeof booksApi;

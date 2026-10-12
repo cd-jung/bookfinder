@@ -15,6 +15,7 @@ flowchart TD
   menu -->|"Logs & Monitoring"| logs[["Logs & Monitoring<br/>(scenario 10)"]]
   menu -->|"Coverage"| coverage["Coverage report inside the layout<br/>(build hint when not built yet)"]
   shell -->|"Help"| help[["Help assistant<br/>(scenario 5)"]]
+  shell -->|"Display language"| languages[["Language select<br/>(scenario 11)"]]
   open -->|"unknown path"| notFound["'Page not found' + Go to Home"]
 
   classDef screen fill:#e8f0fe,stroke:#2f5d9e
@@ -22,11 +23,12 @@ flowchart TD
   classDef link fill:#e6f4ea,stroke:#2e7d32
   class shell,permanent,drawer,menu,coverage screen
   class notFound hidden
-  class home,guide,logs,help link
+  class home,guide,logs,help,languages link
 
   %% link home 01-page-load-layout.md
   %% link guide 09-user-guide.md
   %% link logs 10-logs-monitoring.md
   %% link help 05-help-conversation.md
+  %% link languages 11-languages.md
   %% guide 01-getting-started.md
 ```

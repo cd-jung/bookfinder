@@ -28,7 +28,8 @@
     "llm_down": "Desktop, AI endpoints answer 502 / 503 (Playwright route interception)",
     "api_down": "Desktop, catalogue API answers 5xx (Playwright route interception)",
     "offline": "Desktop, browser network set offline",
-    "deployed_real": "Deployed site with Workers AI and Vectorize; runs in CD after deploy (tests tagged @real)"
+    "deployed_real": "Deployed site with Workers AI and Vectorize; runs in CD after deploy (tests tagged @real)",
+    "anonymous_ko_browser": "Desktop, browser language ko-KR, no saved choice"
   },
   "journeys": [
     {
@@ -1459,6 +1460,93 @@
           "title": "No matching logs shows 'No log entries match.'",
           "nodes": [
             "10:empty"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "languages",
+      "name": "Languages",
+      "flow": "11-languages.md",
+      "scenarios": [
+        {
+          "id": "I18N-001",
+          "priority": "core",
+          "rule": "C1",
+          "account": "anonymous",
+          "group": "Switching",
+          "title": "Display language offers English, Español, Français and 한국어; each choice switches the menu and search labels",
+          "nodes": [
+            "11:picker",
+            "11:switch"
+          ]
+        },
+        {
+          "id": "I18N-002",
+          "priority": "secondary",
+          "rule": "S5",
+          "account": "anonymous",
+          "group": "Switching",
+          "title": "The chosen language is remembered after reload",
+          "nodes": [
+            "11:remember"
+          ]
+        },
+        {
+          "id": "I18N-003",
+          "priority": "secondary",
+          "rule": "S5",
+          "account": "anonymous_ko_browser",
+          "group": "Switching",
+          "title": "First visit uses the browser language (Korean); unsupported languages fall back to English",
+          "nodes": [
+            "11:first",
+            "11:fallback",
+            "11:browser"
+          ]
+        },
+        {
+          "id": "I18N-004",
+          "priority": "core",
+          "rule": "C3",
+          "account": "anonymous",
+          "group": "Content",
+          "title": "The User Guide shows the page in the chosen language",
+          "nodes": [
+            "11:guide"
+          ]
+        },
+        {
+          "id": "I18N-005",
+          "priority": "core",
+          "rule": "C3",
+          "account": "llm_stub",
+          "group": "Content",
+          "title": "Help answers in the chosen language from that language's User Guide, with links that open it",
+          "nodes": [
+            "11:help"
+          ]
+        },
+        {
+          "id": "I18N-006",
+          "priority": "secondary",
+          "rule": "S2",
+          "account": "llm_stub",
+          "group": "Content",
+          "title": "'Interpreted as' and the example questions are in the chosen language",
+          "nodes": [
+            "11:nl"
+          ]
+        },
+        {
+          "id": "I18N-007",
+          "priority": "secondary",
+          "rule": "S2",
+          "account": "anonymous",
+          "group": "Content",
+          "title": "Genres, formats, languages and book descriptions are translated; titles and authors are unchanged",
+          "nodes": [
+            "11:values"
           ]
         }
       ]

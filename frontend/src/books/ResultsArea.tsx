@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import GridView from '@mui/icons-material/GridView';
 import ViewList from '@mui/icons-material/ViewList';
+import { useTranslation } from 'react-i18next';
 import type { BookPage } from './api';
 import BookCard from './BookCard';
 import { SORTS, type Chip as FilterChip, type Sort } from './searchState';
@@ -53,6 +54,7 @@ interface Props {
 
 export default function ResultsArea(props: Props) {
   const { data, loading, ready, slow, error, onRetry, sort, page, onSort, onPage, chips, onRemoveChip, onClearAll, onOpenBook, emptyActions } = props;
+  const { t, i18n } = useTranslation();
   const [view, setView] = useState<'grid' | 'list'>(loadView);
   useEffect(() => {
     try {
@@ -63,41 +65,41 @@ export default function ResultsArea(props: Props) {
   }, [view]);
 
   return (
-    <Box component="section" aria-label="Results" aria-busy={!ready} sx={{ flex: 1, minWidth: 0 }}>
+    <Box component="section" aria-label={t('results.region')} aria-busy={!ready} sx={{ flex: 1, minWidth: 0 }}>
       {!!chips.length && (
-        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mb: 2, alignItems: 'center' }} aria-label="Active filters" data-testid="filter-chips">
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mb: 2, alignItems: 'center' }} aria-label={t('chips.region')} data-testid="filter-chips">
           {chips.map((chip) => (
             <Chip key={chip.key} label={chip.label} onDelete={() => onRemoveChip(chip)} data-testid="filter-chip" />
           ))}
-          <Button size="small" onClick={onClearAll}>Clear all</Button>
+          <Button size="small" onClick={onClearAll}>{t('chips.clearAll')}</Button>
         </Stack>
       )}
 
       <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 2, flexWrap: 'wrap' }} useFlexGap>
         <Typography aria-live="polite" sx={{ flex: 1, minWidth: 140 }} data-testid="result-count">
-          {data ? `${data.total.toLocaleString()} ${data.total === 1 ? 'book' : 'books'} found` : ' '}
+          {data ? t('results.found', { count: data.total, formatted: data.total.toLocaleString(i18n.language) }) : ' '}
         </Typography>
         <FormControl size="small" sx={{ minWidth: 170 }}>
-          <InputLabel id="sort-label">Sort by</InputLabel>
-          <Select labelId="sort-label" label="Sort by" value={sort} onChange={(e) => onSort(e.target.value as Sort)}>
+          <InputLabel id="sort-label">{t('results.sortBy')}</InputLabel>
+          <Select labelId="sort-label" label={t('results.sortBy')} value={sort} onChange={(e) => onSort(e.target.value as Sort)}>
             {SORTS.map((s) => (
-              <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
+              <MenuItem key={s} value={s}>{t(`results.sort.${s}`)}</MenuItem>
             ))}
           </Select>
         </FormControl>
-        <ToggleButtonGroup size="small" exclusive value={view} onChange={(_, v) => v && setView(v)} aria-label="View">
-          <ToggleButton value="grid" aria-label="Grid view"><GridView fontSize="small" /></ToggleButton>
-          <ToggleButton value="list" aria-label="List view"><ViewList fontSize="small" /></ToggleButton>
+        <ToggleButtonGroup size="small" exclusive value={view} onChange={(_, v) => v && setView(v)} aria-label={t('results.view')}>
+          <ToggleButton value="grid" aria-label={t('results.grid')}><GridView fontSize="small" /></ToggleButton>
+          <ToggleButton value="list" aria-label={t('results.list')}><ViewList fontSize="small" /></ToggleButton>
         </ToggleButtonGroup>
       </Stack>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} action={<Button color="inherit" size="small" onClick={onRetry}>Retry</Button>}>
+        <Alert severity="error" sx={{ mb: 2 }} action={<Button color="inherit" size="small" onClick={onRetry}>{t('common.retry')}</Button>}>
           {error}
         </Alert>
       )}
       {loading && slow && (
-        <Typography color="text.secondary" sx={{ mb: 1 }} data-testid="still-loading">Still loading…</Typography>
+        <Typography color="text.secondary" sx={{ mb: 1 }} data-testid="still-loading">{t('results.stillLoading')}</Typography>
       )}
 
       {loading && !data ? (
@@ -108,8 +110,8 @@ export default function ResultsArea(props: Props) {
         </Box>
       ) : data && data.total === 0 && !error ? (
         <Stack spacing={1.5} sx={{ alignItems: 'flex-start', py: 4 }} data-testid="empty-state">
-          <Typography variant="h6" component="p">No books match</Typography>
-          <Typography color="text.secondary">Try removing a filter or searching with other words.</Typography>
+          <Typography variant="h6" component="p">{t('results.noMatch')}</Typography>
+          <Typography color="text.secondary">{t('results.noMatchHint')}</Typography>
           <Stack direction="row" spacing={1}>{emptyActions}</Stack>
         </Stack>
       ) : data ? (

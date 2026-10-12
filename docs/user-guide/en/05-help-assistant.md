@@ -10,7 +10,8 @@ answer questions about individual books (use the search for that) or general que
 3. Read the short answer, then click a link below it to open the full User Guide section.
 
 Questions can be up to 1000 characters long; a counter appears near the limit. You can ask a follow-up
-question: the assistant takes your previous question into account.
+question: the assistant takes your previous question into account. The assistant answers in your
+display language.
 
 While the assistant is looking up the answer, you can click **Stop generating** to cancel.
 

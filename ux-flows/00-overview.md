@@ -2,7 +2,7 @@
 
 BookFinder (fictional): book search with keyword & filter search, natural language (AI) search, a Help
 assistant that explains how to use the service (RAG over the User Guide), the User Guide itself and
-Logs & Monitoring. No login. Click a box to open its flow.
+Logs & Monitoring, in English, Spanish, French and Korean. No login. Click a box to open its flow.
 
 ```mermaid
 flowchart LR
@@ -16,6 +16,7 @@ flowchart LR
   s8["8 App Shell & Navigation"]
   s9["9 User Guide"]
   s10["10 Logs & Monitoring"]
+  s11["11 Languages"]
 
   s8 -->|"Book Search"| s1
   s1 -->|"Keyword tab"| s2
@@ -30,9 +31,10 @@ flowchart LR
   s8 -->|"User Guide"| s9
   s8 -->|"Logs & Monitoring"| s10
   s7 -.- s1
+  s11 -.- s8
 
   classDef scenario fill:#e8f0fe,stroke:#2f5d9e,stroke-width:2px
-  class s1,s2,s3,s4,s5,s6,s7,s8,s9,s10 scenario
+  class s1,s2,s3,s4,s5,s6,s7,s8,s9,s10,s11 scenario
 
   %% link s1 01-page-load-layout.md
   %% link s2 02-keyword-filter-search.md
@@ -44,4 +46,5 @@ flowchart LR
   %% link s8 08-app-shell.md
   %% link s9 09-user-guide.md
   %% link s10 10-logs-monitoring.md
+  %% link s11 11-languages.md
 ```

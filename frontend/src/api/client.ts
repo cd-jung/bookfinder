@@ -1,4 +1,5 @@
 import { API_BASE } from '../config';
+import { currentLanguage } from '../i18n';
 
 /** Error raised for non-2xx responses; `detail` is the backend message shown to the user. */
 export class ApiError extends Error {
@@ -35,7 +36,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getJson<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<T> {
   const query = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
+  Object.entries({ ...params, lang: currentLanguage() as string }).forEach(([key, value]) => {
     if (value !== undefined && value !== '') query.set(key, String(value));
   });
   const suffix = query.toString() ? `?${query}` : '';
@@ -46,7 +47,7 @@ export function postJson<T>(path: string, body: unknown, signal?: AbortSignal): 
   return request<T>(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify(body && typeof body === 'object' && !Array.isArray(body) ? { ...body, lang: currentLanguage() } : body),
     signal,
   });
 }

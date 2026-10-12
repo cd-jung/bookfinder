@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import i18n from '../i18n';
 import { apiParams, EMPTY_FILTERS, filterChips, parseSearch, toParams } from './searchState';
 
 describe('searchState', () => {
@@ -24,10 +25,13 @@ describe('searchState', () => {
 
   it('builds chips that remove their own filter', () => {
     const f = parseSearch(new URLSearchParams('genre=fantasy&author=A&year_to=2000&language=French&format=eBook&in_stock=1&min_rating=3&price_max=9')).filters;
-    const chips = filterChips(f, (s) => s.toUpperCase());
+    const chips = filterChips(f);
     expect(chips.map((c) => c.label)).toEqual([
-      'Genre: FANTASY', 'Author: A', 'Year: …–2000', 'Language: French', 'Format: eBook', 'In stock only', 'Rating: 3+ stars', 'Price: $0–$9',
+      'Genre: fantasy', 'Author: A', 'Year: …–2000', 'Language: French', 'Format: eBook', 'In stock only', 'Rating: 3+ stars', 'Price: $0–$9',
     ]);
+    expect(filterChips(f, i18n.t.bind(i18n) as never).map((c) => c.label)[0]).toBe('Genre: Fantasy');
+    void i18n.changeLanguage('ko');
+    expect(filterChips(f, i18n.t.bind(i18n) as never).map((c) => c.label).slice(0, 4)).toEqual(['장르: 판타지', '저자: A', '연도: …–2000', '언어: 프랑스어']);
     const cleared = chips.reduce((acc, chip) => chip.remove(acc), f);
     expect(filterChips(cleared)).toEqual([]);
   });

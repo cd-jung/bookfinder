@@ -3,16 +3,9 @@
  * Back / Forward all restore the search). Unknown params are ignored and invalid values fall
  * back to defaults (PAGE-008).
  */
-export const SORTS = [
-  { value: 'relevance', label: 'Relevance' },
-  { value: 'newest', label: 'Newest' },
-  { value: 'oldest', label: 'Oldest' },
-  { value: 'title', label: 'Title A-Z' },
-  { value: 'rating', label: 'Highest rated' },
-  { value: 'price', label: 'Price low-high' },
-] as const;
+export const SORTS = ['relevance', 'newest', 'oldest', 'title', 'rating', 'price'] as const;
 
-export type Sort = (typeof SORTS)[number]['value'];
+export type Sort = (typeof SORTS)[number];
 
 export interface Filters {
   genre: string[];
@@ -67,7 +60,7 @@ export function parseSearch(params: URLSearchParams): SearchState {
       priceMin: num(params.get('price_min')),
       priceMax: num(params.get('price_max')),
     },
-    sort: SORTS.some((s) => s.value === sort) ? (sort as Sort) : 'relevance',
+    sort: SORTS.includes(sort as Sort) ? (sort as Sort) : 'relevance',
     page: int(params.get('page')) ?? 1,
     book: int(params.get('book'), 1, 1_000_000_000),
   };
@@ -107,18 +100,34 @@ export interface Chip {
   remove: (f: Filters) => Filters;
 }
 
-/** Active filter chips, in a stable order (the last chip is what "Remove last filter" removes). */
-export function filterChips(f: Filters, genreName: (slug: string) => string = (s) => s): Chip[] {
+type T = (key: string, options?: Record<string, unknown>) => string;
+
+/** English chip text, used when no translator is passed (tests, logs). */
+const plain: T = (key, o = {}) => {
+  const templates: Record<string, string> = {
+    'chips.genre': 'Genre: {{value}}', 'chips.author': 'Author: {{value}}', 'chips.year': 'Year: {{from}}–{{to}}',
+    'chips.language': 'Language: {{value}}', 'chips.format': 'Format: {{value}}', 'chips.inStock': 'In stock only',
+    'chips.rating': 'Rating: {{value}}+ stars', 'chips.price': 'Price: ${{min}}–${{max}}',
+  };
+  return (templates[key] ?? key).replace(/{{(\w+)}}/g, (_, k) => String(o[k] ?? ''));
+};
+
+/**
+ * Active filter chips, in a stable order (the last chip is what "Remove last filter" removes).
+ * `t` translates the chip text; values (genre slugs, languages, formats) go through `t('values....')`.
+ */
+export function filterChips(f: Filters, t: T = plain, translateValues = t !== plain): Chip[] {
+  const value = (kind: string, v: string) => (translateValues ? t(`values.${kind}.${v}`) : v);
   const chips: Chip[] = [];
-  f.genre.forEach((g) => chips.push({ key: `genre:${g}`, label: `Genre: ${genreName(g)}`, remove: (x) => ({ ...x, genre: x.genre.filter((v) => v !== g) }) }));
-  if (f.author) chips.push({ key: 'author', label: `Author: ${f.author}`, remove: (x) => ({ ...x, author: '' }) });
+  f.genre.forEach((g) => chips.push({ key: `genre:${g}`, label: t('chips.genre', { value: value('genre', g) }), remove: (x) => ({ ...x, genre: x.genre.filter((v) => v !== g) }) }));
+  if (f.author) chips.push({ key: 'author', label: t('chips.author', { value: f.author }), remove: (x) => ({ ...x, author: '' }) });
   if (f.yearFrom || f.yearTo)
-    chips.push({ key: 'year', label: `Year: ${f.yearFrom ?? '…'}–${f.yearTo ?? '…'}`, remove: (x) => ({ ...x, yearFrom: undefined, yearTo: undefined }) });
-  if (f.language) chips.push({ key: 'language', label: `Language: ${f.language}`, remove: (x) => ({ ...x, language: '' }) });
-  f.format.forEach((v) => chips.push({ key: `format:${v}`, label: `Format: ${v}`, remove: (x) => ({ ...x, format: x.format.filter((y) => y !== v) }) }));
-  if (f.inStock) chips.push({ key: 'stock', label: 'In stock only', remove: (x) => ({ ...x, inStock: false }) });
-  if (f.minRating) chips.push({ key: 'rating', label: `Rating: ${f.minRating}+ stars`, remove: (x) => ({ ...x, minRating: undefined }) });
+    chips.push({ key: 'year', label: t('chips.year', { from: f.yearFrom ?? '…', to: f.yearTo ?? '…' }), remove: (x) => ({ ...x, yearFrom: undefined, yearTo: undefined }) });
+  if (f.language) chips.push({ key: 'language', label: t('chips.language', { value: value('language', f.language) }), remove: (x) => ({ ...x, language: '' }) });
+  f.format.forEach((v) => chips.push({ key: `format:${v}`, label: t('chips.format', { value: value('format', v) }), remove: (x) => ({ ...x, format: x.format.filter((y) => y !== v) }) }));
+  if (f.inStock) chips.push({ key: 'stock', label: t('chips.inStock'), remove: (x) => ({ ...x, inStock: false }) });
+  if (f.minRating) chips.push({ key: 'rating', label: t('chips.rating', { value: f.minRating }), remove: (x) => ({ ...x, minRating: undefined }) });
   if (f.priceMin !== undefined || f.priceMax !== undefined)
-    chips.push({ key: 'price', label: `Price: $${f.priceMin ?? 0}–$${f.priceMax ?? '…'}`, remove: (x) => ({ ...x, priceMin: undefined, priceMax: undefined }) });
+    chips.push({ key: 'price', label: t('chips.price', { min: f.priceMin ?? 0, max: f.priceMax ?? '…' }), remove: (x) => ({ ...x, priceMin: undefined, priceMax: undefined }) });
   return chips;
 }

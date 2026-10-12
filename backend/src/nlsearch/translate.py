@@ -45,6 +45,11 @@ def normalise(question):
     return " ".join(question.lower().split())
 
 
+def example_questions(example):
+    """The example's question plus its translations (stub fixtures match any of them)."""
+    return [example["question"], *example.get("translations", {}).values()]
+
+
 def build_prompt(catalog, question):
     shots = [e for e in catalog.examples if "expected_filter" in e][:4]
     examples = "\n".join(f"Q: {e['question']}\nA: {json.dumps(e['expected_filter'])}" for e in shots)
@@ -74,7 +79,7 @@ def question_to_filter(catalog, question):
     if llm.mode() == "stub":
         key = normalise(question)
         for example in catalog.examples:
-            if normalise(example["question"]) == key:
+            if key in (normalise(q) for q in example_questions(example)):
                 if "expected_error" in example:
                     return {"error": example["expected_error"]}
                 # stub_filter: raw (possibly invalid) model output for guard-rail tests
@@ -83,7 +88,7 @@ def question_to_filter(catalog, question):
     return parse_model_output(llm.generate(build_prompt(catalog, question), max_tokens=500))
 
 
-def translate(catalog, question):
+def translate(catalog, question, lang="en"):
     """Return {"filter", "description"}; raises QuestionError, UntranslatableError or llm.LLMError."""
     if not isinstance(question, str) or not question.strip():
         raise QuestionError("question is required")
@@ -96,4 +101,4 @@ def translate(catalog, question):
         compile_filter(catalog, result)
     except FilterValidationError as exc:
         raise UntranslatableError(f"The generated filter is not valid: {exc}") from exc
-    return {"filter": result, "description": describe_filter(catalog, result)}
+    return {"filter": result, "description": describe_filter(catalog, result, lang)}

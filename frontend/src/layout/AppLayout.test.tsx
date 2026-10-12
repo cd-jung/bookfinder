@@ -5,6 +5,7 @@ import App from '../App';
 import { APP_NAME } from '../config';
 import { renderAt } from '../test/render';
 import { NAV_ITEMS } from './navItems';
+import i18n from '../i18n';
 
 describe('AppLayout', () => {
   // jsdom has no viewport width, so the layout renders as mobile: the menu is a drawer.
@@ -14,7 +15,7 @@ describe('AppLayout', () => {
     expect(screen.getByRole('button', { name: 'Help' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Open menu' }));
     const menu = screen.getByRole('navigation', { name: 'Main menu' });
-    NAV_ITEMS.forEach((item) => expect(menu).toHaveTextContent(item.label));
+    NAV_ITEMS.forEach((item) => expect(menu).toHaveTextContent(i18n.t(item.labelKey)));
   });
 
   it('marks the current page and links Coverage to the static report', async () => {

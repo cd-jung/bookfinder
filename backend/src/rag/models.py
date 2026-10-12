@@ -8,8 +8,9 @@ class GuideChunk(models.Model):
     backend/scripts/index_guide.py in CD; local / E2E rows by `manage.py index_guide`.
     """
 
-    id = models.CharField(primary_key=True, max_length=200)  # "<page>#<n>"
-    page = models.CharField(max_length=120, db_index=True)  # file name without .md
+    id = models.CharField(primary_key=True, max_length=200)  # "<lang>/<page>#<n>"
+    lang = models.CharField(max_length=5, default="en", db_index=True)
+    page = models.CharField(max_length=120, db_index=True)  # file name without .md (same in every language)
     page_title = models.CharField(max_length=200)
     section = models.CharField(max_length=300)  # "Page > Heading > Sub-heading"
     anchor = models.CharField(max_length=200)  # heading slug, used in the link

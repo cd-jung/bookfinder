@@ -64,18 +64,31 @@ const journeyFlows = new Set(catalog.journeys.map((j) => j.flow));
 for (const j of catalog.journeys) {
   if (!flowFiles.includes(j.flow)) errors.push(`journey ${j.id}: flow ux-flows/${j.flow} does not exist`);
 }
-const guideDir = path.join(ROOT, 'docs/user-guide');
+// docs/user-guide/<lang>/: English is the source; every other language must have the same pages.
+const guideRoot = path.join(ROOT, 'docs/user-guide');
+const guideDir = path.join(guideRoot, 'en');
 const guidePages = fs.existsSync(guideDir) ? fs.readdirSync(guideDir).filter((f) => f.endsWith('.md')) : [];
+const guideLangs = fs.existsSync(guideRoot) ? fs.readdirSync(guideRoot).filter((d) => fs.statSync(path.join(guideRoot, d)).isDirectory()) : [];
+if (!guideLangs.includes('en')) errors.push('docs/user-guide/en/ (the source language) is missing');
+for (const lang of guideLangs.filter((l) => l !== 'en')) {
+  const pages = fs.readdirSync(path.join(guideRoot, lang)).filter((f) => f.endsWith('.md'));
+  guidePages.filter((p) => !pages.includes(p)).forEach((p) => errors.push(`docs/user-guide/${lang}/${p} is missing (translate docs/user-guide/en/${p})`));
+  pages.filter((p) => !guidePages.includes(p)).forEach((p) => errors.push(`docs/user-guide/${lang}/${p} has no English source page`));
+  for (const page of pages) {
+    if (!/^# \S/.test(fs.readFileSync(path.join(guideRoot, lang, page), 'utf8'))) errors.push(`docs/user-guide/${lang}/${page} must start with a "# Title" line`);
+  }
+}
+// UI locale keys: frontend/src/i18n/locales/*.ts are typed as `Messages` (from en.ts), so tsc rejects a missing key.
 for (const file of flowFiles.filter((f) => !f.startsWith('00-'))) {
   const text = fs.readFileSync(path.join(flowDir, file), 'utf8');
   if (!journeyFlows.has(file)) errors.push(`ux-flows/${file} has no journey in e2e/scenarios/catalog.json`);
   const guides = [...text.matchAll(/%%\s*guide\s+(\S+\.md)/g)].map((m) => m[1]);
   if (!guides.length) errors.push(`ux-flows/${file} has no "%% guide <page>.md" directive`);
-  guides.filter((g) => !guidePages.includes(g)).forEach((g) => errors.push(`ux-flows/${file}: guide page docs/user-guide/${g} does not exist`));
+  guides.filter((g) => !guidePages.includes(g)).forEach((g) => errors.push(`ux-flows/${file}: guide page docs/user-guide/en/${g} does not exist`));
 }
 for (const page of guidePages) {
   const text = fs.readFileSync(path.join(guideDir, page), 'utf8');
-  if (!/^# \S/.test(text)) errors.push(`docs/user-guide/${page} must start with a "# Title" line`);
+  if (!/^# \S/.test(text)) errors.push(`docs/user-guide/en/${page} must start with a "# Title" line`);
 }
 
 const testsDir = path.join(ROOT, 'e2e/tests');

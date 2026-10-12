@@ -105,10 +105,12 @@ class Book(models.Model):
             "coverColor": self.cover_color or None,
         }
 
-    def as_detail(self):
+    def as_detail(self, lang="en"):
+        from books.i18n import description
+
         return {
             **self.as_card(),
-            "description": self.description,
+            "description": description(self, lang) if lang != "en" else self.description,
             "pages": self.page_count,
             "publisher": self.publisher,
             "publishedDate": self.published_date.isoformat(),

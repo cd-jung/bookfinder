@@ -100,7 +100,10 @@ def chunk_page(page, text):
 
 
 def chunk_directory(directory):
+    """Chunk docs/user-guide/<lang>/*.md for every language folder; ids are "<lang>/<page>#<n>"."""
     chunks = []
-    for file in sorted(Path(directory).glob("*.md")):
-        chunks.extend(chunk_page(file.stem, file.read_text(encoding="utf-8")))
+    for lang_dir in sorted(p for p in Path(directory).iterdir() if p.is_dir()):
+        for file in sorted(lang_dir.glob("*.md")):
+            for chunk in chunk_page(file.stem, file.read_text(encoding="utf-8")):
+                chunks.append({**chunk, "id": f"{lang_dir.name}/{chunk['id']}", "lang": lang_dir.name})
     return chunks

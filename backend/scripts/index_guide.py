@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 REPO = ROOT.parent
 sys.path.insert(0, str(ROOT / "src" / "rag"))
-from chunking import chunk_directory  # noqa: E402
+from chunking import chunk_directory  # noqa: E402  (every docs/user-guide/<lang>/ folder)
 
 CONFIG = json.loads((REPO / "project.config.json").read_text())
 CF = CONFIG["cloudflare"]
@@ -59,17 +59,32 @@ def main(full):
         batch = changed[start : start + BATCH]
         vectors = embed([f"{c['section']}\n{c['content']}" for c in batch])
         ndjson = "\n".join(
-            json.dumps({"id": c["id"], "values": v, "metadata": {"page": c["page"], "section": c["section"]}})
+            json.dumps(
+                {
+                    "id": c["id"],
+                    "values": v,
+                    "metadata": {"lang": c["lang"], "page": c["page"], "section": c["section"]},
+                }
+            )
             for c, v in zip(batch, vectors, strict=True)
         )
         call("POST", f"/vectorize/v2/indexes/{index}/upsert", ndjson.encode(), "application/x-ndjson")
         for c in batch:
             d1(
-                "INSERT INTO rag_guidechunk (id, page, page_title, section, anchor, content, content_hash, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now')) ON CONFLICT(id) DO UPDATE SET page=excluded.page, "
+                "INSERT INTO rag_guidechunk (id, lang, page, page_title, section, anchor, content, content_hash, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now')) ON CONFLICT(id) DO UPDATE SET lang=excluded.lang, page=excluded.page, "
                 "page_title=excluded.page_title, section=excluded.section, anchor=excluded.anchor, "
                 "content=excluded.content, content_hash=excluded.content_hash, updated_at=excluded.updated_at",
-                [c["id"], c["page"], c["page_title"], c["section"], c["anchor"], c["content"], c["content_hash"]],
+                [
+                    c["id"],
+                    c["lang"],
+                    c["page"],
+                    c["page_title"],
+                    c["section"],
+                    c["anchor"],
+                    c["content"],
+                    c["content_hash"],
+                ],
             )
     if removed:
         call("POST", f"/vectorize/v2/indexes/{index}/delete_by_ids", {"ids": removed})

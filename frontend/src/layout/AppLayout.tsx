@@ -16,6 +16,8 @@ import {
   useTheme,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
+import { useTranslation } from 'react-i18next';
+import LanguageSelect from '../i18n/LanguageSelect';
 import { APP_NAME } from '../config';
 import { NAV_ITEMS } from './navItems';
 import HelpChat from '../chat/HelpChat';
@@ -28,11 +30,12 @@ export default function AppLayout() {
   const desktop = useMediaQuery(theme.breakpoints.up('md'));
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
+  const { t } = useTranslation();
 
   const isActive = (to: string) => (to === '/' ? pathname === '/' : pathname.startsWith(to));
 
   const menu = (
-    <nav aria-label="Main menu">
+    <nav aria-label={t('app.mainMenu')}>
       <List>
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
@@ -50,7 +53,7 @@ export default function AppLayout() {
               <ListItemIcon>
                 <Icon />
               </ListItemIcon>
-              <ListItemText primary={item.label} />
+              <ListItemText primary={t(item.labelKey)} />
             </ListItemButton>
             </ListItem>
           );
@@ -65,13 +68,14 @@ export default function AppLayout() {
       <AppBar position="fixed" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}>
         <Toolbar>
           {!desktop && (
-            <IconButton color="inherit" edge="start" aria-label="Open menu" onClick={() => setOpen(true)} sx={{ mr: 1 }}>
+            <IconButton color="inherit" edge="start" aria-label={t('app.openMenu')} onClick={() => setOpen(true)} sx={{ mr: 1 }}>
               <MenuIcon />
             </IconButton>
           )}
-          <Typography variant="h6" component={RouterLink} to="/" sx={{ color: 'inherit', textDecoration: 'none' }}>
+          <Typography variant="h6" component={RouterLink} to="/" sx={{ color: 'inherit', textDecoration: 'none', flex: 1 }}>
             {APP_NAME}
           </Typography>
+          <LanguageSelect />
         </Toolbar>
       </AppBar>
       <Drawer

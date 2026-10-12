@@ -34,7 +34,7 @@ backend/                     Django on Python Workers
   d1_migrations/             generated from Django migrations, never edited by hand
   scripts/                   export_d1_migrations.py, index_guide.py (CD)
 frontend/src/                one folder per feature (chat/, logs/, guide/, ...), tests next to code
-docs/user-guide/             NN-<topic>.md: the User Guide page AND the RAG corpus
+docs/user-guide/<lang>/      NN-<topic>.md in en (source), es, fr, ko: the User Guide page AND the RAG corpus
 ux-flows/                    NN-<feature>.md Mermaid flowcharts + viewer (index.html, build.py)
 e2e/                         scenarios/catalog.json, tests/*.spec.js, coverage report scripts
 scripts/                     check-consistency, new-project, build-site, dev, unit-summary
@@ -108,12 +108,25 @@ Commit message: `feat(<feature>): ...`, `fix(<feature>): ...`, `refactor(<featur
   `LogsPage`, `HelpChat`) instead of mocking modules. Use `test/render.tsx` (`renderAt`).
 - Delete or rewrite tests when behaviour is removed or changed. Never skip a failing test to go green.
 
-### 4.5 User Guide (`docs/user-guide/`)
+### 4.5 User Guide (`docs/user-guide/<lang>/`)
 
 - `NN-<topic>.md`, starts with `# Title`; `##` sections become link anchors for the Help assistant
   (slug rule shared by `rag/chunking.py` and `guide/slug.ts`).
 - Written for end users: what to click, what they see, what errors mean. No implementation details.
 - These files are both the **User Guide menu** and the **RAG corpus**; CD re-indexes changed sections.
+- English (`en/`) is the source. Every change is made in all four languages (`en`, `es`, `fr`, `ko`) in the
+  same commit, with the same file names and the UI labels of that language; `npm run check` fails when a
+  translation is missing.
+
+### 4.6 Languages (UI)
+
+- Every user-visible string goes through `t()` (react-i18next). Add the key to
+  `frontend/src/i18n/locales/en.ts` and translate it in `es.ts`, `fr.ts`, `ko.ts` (typed: tsc fails on a missing key).
+- Catalogue values shown to users (genres, formats, languages) use `values.*` keys; stored values stay in English.
+- The API receives `lang` automatically (`api/client.ts`); server-side text that users read (NL
+  descriptions, Help answers and fixed replies, generated descriptions) must exist for all four languages.
+- Book titles, author names and developer reports (coverage report, UX flows, E2E catalog) stay untranslated.
+- E2E tests run in English; language scenarios live in `ux-flows/11-languages.md`.
 
 ## 5. Code conventions
 

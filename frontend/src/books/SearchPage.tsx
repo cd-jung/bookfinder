@@ -22,30 +22,34 @@ import AutoAwesome from '@mui/icons-material/AutoAwesome';
 import ClearIcon from '@mui/icons-material/Clear';
 import FilterList from '@mui/icons-material/FilterList';
 import SearchIcon from '@mui/icons-material/Search';
+import { useTranslation } from 'react-i18next';
 import { ApiError } from '../api/client';
 import { useChat } from '../chat/useChat';
 import { useOnline } from '../common/useOnline';
 import { booksApi, type BookPage, type BooksApi, type Facets, type Translation } from './api';
 import BookDialog from './BookDialog';
-import { HELP_PREFILL_EMPTY, MAX_QUESTION, NL_EXAMPLES } from './constants';
+import { MAX_QUESTION } from './constants';
 import { editAsFilters } from './editAsFilters';
 import FilterPanel from './FilterPanel';
 import ResultsArea from './ResultsArea';
 import { apiParams, EMPTY_FILTERS, filterChips, parseSearch, toParams, type Filters, type SearchState } from './searchState';
 
 
-function translateError(error: unknown) {
+type T = (key: string, options?: Record<string, unknown>) => string;
+
+function translateError(error: unknown, t: T) {
   if (error instanceof ApiError) {
-    if (error.status === 422) return 'The question could not be translated. Please rephrase it.';
-    if (error.status === 429 || error.status === 400) return error.detail;
+    if (error.status === 422) return t('search.errors.untranslatable');
+    if (error.status === 429) return t('search.errors.tooMany', { seconds: (error.body as { retryAfter?: number } | null)?.retryAfter ?? 60 });
+    if (error.status === 400) return error.detail;
   }
-  return 'The AI search is unavailable. Use keyword search instead.';
+  return t('search.errors.aiDown');
 }
 
-function listError(error: unknown) {
-  if (error instanceof ApiError && (error.status === 503 || error.status === 504)) return 'Search took too long, try a narrower question';
+function listError(error: unknown, t: T) {
+  if (error instanceof ApiError && (error.status === 503 || error.status === 504)) return t('search.errors.slow');
   if (error instanceof ApiError && error.status === 400) return error.detail;
-  return 'Could not load books';
+  return t('search.errors.load');
 }
 
 /** BookFinder search (flows 01-04): keyword & filters, natural language (AI), results and detail. */
@@ -54,6 +58,9 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
   const desktop = useMediaQuery(theme.breakpoints.up('md'));
   const online = useOnline();
   const { openChat } = useChat();
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
+  const [examples, setExamples] = useState<string[]>([]);
   const [params, setParams] = useSearchParams();
   const state = useMemo(() => parseSearch(params), [params]);
 
@@ -67,7 +74,7 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
   const [reload, setReload] = useState(0);
   const [keywordDraft, setKeywordDraft] = useState(state.mode === 'keyword' ? state.q : '');
   const [question, setQuestion] = useState(state.mode === 'nl' ? state.q : '');
-  const [nl, setNl] = useState<(Translation & { question: string }) | null>(null);
+  const [nl, setNl] = useState<(Translation & { question: string; lang: string }) | null>(null);
   const [translating, setTranslating] = useState(false);
   const [nlError, setNlError] = useState('');
   const [notice, setNotice] = useState('');
@@ -87,6 +94,9 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
     api.facets().then(setFacets, () => setFacetsError(true));
   }, [api]);
   useEffect(loadFacets, [loadFacets]);
+  useEffect(() => {
+    api.examples().then((r) => setExamples(r.examples), () => setExamples([]));
+  }, [api, lang]);
 
   // Keep the inputs in sync with Back / Forward and deep links.
   useEffect(() => {
@@ -101,18 +111,18 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
       setNl(null);
       return;
     }
-    if (nl?.question === nlKey) return;
+    if (nl?.question === nlKey && nl.lang === lang) return;
     let live = true;
     setTranslating(true);
     setNlError('');
     api
       .translate(nlKey)
       .then(
-        (t) => live && setNl({ ...t, question: nlKey }),
+        (r) => live && setNl({ ...r, question: nlKey, lang }),
         (e) => {
           if (!live) return;
           setNl(null);
-          setNlError(translateError(e));
+          setNlError(translateError(e, t));
         },
       )
       .finally(() => live && setTranslating(false));
@@ -120,10 +130,10 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nlKey, api]);
+  }, [nlKey, api, lang]);
 
   // Results request.
-  const listKey = JSON.stringify(apiParams(state, state.mode === 'nl' ? nl?.filter : undefined));
+  const listKey = JSON.stringify({ ...apiParams(state, state.mode === 'nl' ? nl?.filter : undefined), lang });
   const waitingForNl = state.mode === 'nl' && !!state.q && nl?.question !== state.q;
   useEffect(() => {
     if (waitingForNl) return;
@@ -134,7 +144,7 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
     setError('');
     const slowTimer = setTimeout(() => live && setSlow(true), 3000);
     api
-      .list(JSON.parse(listKey))
+      .list(apiParams(state, state.mode === 'nl' ? nl?.filter : undefined))
       .then(
         (page) => {
           if (!live) return;
@@ -142,7 +152,7 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
           setShownKey(listKey);
           if (state.page > page.pages || state.page !== page.page) update({ page: page.page }, { replace: true });
         },
-        (e) => live && setError(listError(e)),
+        (e) => live && setError(listError(e, t)),
       )
       .finally(() => {
         clearTimeout(slowTimer);
@@ -158,8 +168,7 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listKey, waitingForNl, nlError, reload, api]);
 
-  const genreName = useCallback((slug: string) => facets?.genres.find((g) => g.slug === slug)?.name ?? slug, [facets]);
-  const chips = filterChips(state.filters, genreName);
+  const chips = filterChips(state.filters, t);
 
   const setFilters = (filters: Filters) => update({ filters });
   const submitKeyword = (event?: FormEvent) => {
@@ -180,7 +189,7 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
   const applyEditAsFilters = () => {
     if (!nl) return;
     const { filters, unsupported } = editAsFilters(nl.filter);
-    setNotice(unsupported.length ? `Some conditions cannot be shown as filters: ${unsupported.join(', ')}` : '');
+    setNotice(unsupported.length ? t('search.unsupported', { list: unsupported.join(', ') }) : '');
     update({ mode: 'keyword', q: '', filters });
   };
   const openBook = (id: number, el?: HTMLElement) => {
@@ -191,11 +200,11 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
     setParams(toParams({ ...state, book: undefined }));
     const id = lastCard.current;
     setTimeout(() => (document.querySelector(`[data-book-id="${id}"]`) as HTMLElement | null)?.focus(), 0);
-  }, [setParams, state]);
+  }, [setParams, state, t]);
   const bookNotFound = useCallback(() => {
-    setNotice('Book not found');
+    setNotice(t('search.bookNotFound'));
     setParams(toParams({ ...state, book: undefined }), { replace: true });
-  }, [setParams, state]);
+  }, [setParams, state, t]);
 
   const filterPanel = facets && (
     <FilterPanel
@@ -211,33 +220,33 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
   const emptyActions =
     state.mode === 'nl' ? (
       <>
-        <Button variant="contained" onClick={() => switchMode('keyword')}>Try keyword search</Button>
-        <Button onClick={() => openChat(HELP_PREFILL_EMPTY)}>Get help</Button>
+        <Button variant="contained" onClick={() => switchMode('keyword')}>{t('search.tryKeyword')}</Button>
+        <Button onClick={() => openChat(t('search.helpPrefill'))}>{t('search.getHelp')}</Button>
       </>
     ) : (
       <>
         {!!chips.length && (
-          <Button variant="contained" onClick={() => setFilters(chips[chips.length - 1].remove(state.filters))}>Remove last filter</Button>
+          <Button variant="contained" onClick={() => setFilters(chips[chips.length - 1].remove(state.filters))}>{t('search.removeLastFilter')}</Button>
         )}
-        <Button onClick={() => openChat(HELP_PREFILL_EMPTY)}>Get help</Button>
+        <Button onClick={() => openChat(t('search.helpPrefill'))}>{t('search.getHelp')}</Button>
       </>
     );
 
   return (
     <Stack spacing={2}>
-      <Typography variant="h4" component="h1">Find books</Typography>
-      {!online && <Alert severity="warning">You are offline. Search is disabled until you are back online.</Alert>}
+      <Typography variant="h4" component="h1">{t('search.title')}</Typography>
+      {!online && <Alert severity="warning">{t('search.offline')}</Alert>}
       {facetsError && (
-        <Alert severity="error" action={<Button color="inherit" size="small" onClick={loadFacets}>Retry</Button>}>
-          Could not load the catalogue filters.
+        <Alert severity="error" action={<Button color="inherit" size="small" onClick={loadFacets}>{t('common.retry')}</Button>}>
+          {t('search.facetsError')}
         </Alert>
       )}
       {notice && <Alert severity="info" onClose={() => setNotice('')}>{notice}</Alert>}
 
-      <Paper variant="outlined" sx={{ p: 2 }} component="section" aria-label="Search">
+      <Paper variant="outlined" sx={{ p: 2 }} component="section" aria-label={t('search.region')}>
         <Tabs value={state.mode} onChange={(_, v) => switchMode(v)} sx={{ mb: 2 }}>
-          <Tab value="keyword" label="Keyword & filters" />
-          <Tab value="nl" label="Ask in plain language (AI)" />
+          <Tab value="keyword" label={t('search.tabKeyword')} />
+          <Tab value="nl" label={t('search.tabNl')} />
         </Tabs>
         {state.mode === 'keyword' ? (
           <Box component="form" onSubmit={submitKeyword} role="search">
@@ -246,16 +255,16 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
               type="search"
               value={keywordDraft}
               onChange={(e) => setKeywordDraft(e.target.value)}
-              placeholder="Title, author, ISBN, publisher or description"
+              placeholder={t('search.keywordPlaceholder')}
               disabled={!online}
               slotProps={{
-                htmlInput: { 'aria-label': 'Search books', maxLength: 200 },
+                htmlInput: { 'aria-label': t('search.keywordLabel'), maxLength: 200 },
                 input: {
                   endAdornment: (
                     <InputAdornment position="end">
                       {keywordDraft && (
                         <IconButton
-                          aria-label="Clear search"
+                          aria-label={t('search.clear')}
                           onClick={() => {
                             setKeywordDraft('');
                             update({ q: '' });
@@ -264,7 +273,7 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
                           <ClearIcon />
                         </IconButton>
                       )}
-                      <IconButton type="submit" aria-label="Search" disabled={!online}>
+                      <IconButton type="submit" aria-label={t('search.submit')} disabled={!online}>
                         <SearchIcon />
                       </IconButton>
                     </InputAdornment>
@@ -285,15 +294,15 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
               fullWidth
               value={question}
               onChange={(e) => setQuestion(e.target.value.slice(0, MAX_QUESTION))}
-              placeholder="e.g. Korean novels after 2015 under $20 with 4+ stars"
+              placeholder={t('search.nlPlaceholder')}
               disabled={translating || !online}
               slotProps={{
-                htmlInput: { 'aria-label': 'Ask in plain language', maxLength: MAX_QUESTION },
+                htmlInput: { 'aria-label': t('search.nlLabel'), maxLength: MAX_QUESTION },
                 input: {
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton type="submit" aria-label="Translate and search" disabled={translating || !question.trim() || !online}>
-                        {translating ? <CircularProgress size={20} aria-label="Translating" /> : <AutoAwesome />}
+                      <IconButton type="submit" aria-label={t('search.nlSubmit')} disabled={translating || !question.trim() || !online}>
+                        {translating ? <CircularProgress size={20} aria-label={t('search.translating')} /> : <AutoAwesome />}
                       </IconButton>
                     </InputAdornment>
                   ),
@@ -301,7 +310,7 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
               }}
             />
             <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mt: 1 }}>
-              {NL_EXAMPLES.map((example) => (
+              {examples.map((example) => (
                 <Chip key={example} label={example} variant="outlined" onClick={() => runQuestion(example)} disabled={translating} data-testid="nl-example" />
               ))}
             </Stack>
@@ -310,9 +319,9 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
                 severity="info"
                 role="status"
                 sx={{ mt: 2 }}
-                action={<Button color="inherit" size="small" onClick={applyEditAsFilters}>Edit as filters</Button>}
+                action={<Button color="inherit" size="small" onClick={applyEditAsFilters}>{t('search.editAsFilters')}</Button>}
               >
-                <strong>Interpreted as:</strong> {nl.description}
+                <strong>{t('search.interpretedAs')}</strong> {nl.description}
               </Alert>
             )}
             {nlError && <Alert severity="error" sx={{ mt: 2 }} data-testid="nl-error">{nlError}</Alert>}
@@ -323,13 +332,13 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
       {!desktop && facets && (
         <Box>
           <Button variant="outlined" startIcon={<FilterList />} onClick={() => { setDraftFilters(state.filters); setDrawerOpen(true); }}>
-            Filters{chips.length ? ` (${chips.length})` : ''}
+            {chips.length ? t('search.filtersButtonCount', { count: chips.length }) : t('search.filtersButton')}
           </Button>
           <Drawer anchor="left" open={drawerOpen} onClose={() => setDrawerOpen(false)} slotProps={{ paper: { sx: { width: 300, p: 2 } } }}>
-            <Typography variant="h6" component="h2" sx={{ mb: 2 }}>Filters</Typography>
+            <Typography variant="h6" component="h2" sx={{ mb: 2 }}>{t('filters.region')}</Typography>
             {filterPanel}
             <Button variant="contained" sx={{ mt: 2 }} onClick={() => { setFilters(draftFilters); setDrawerOpen(false); }}>
-              Apply
+              {t('search.apply')}
             </Button>
           </Drawer>
         </Box>

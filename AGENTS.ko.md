@@ -36,7 +36,7 @@ backend/                     Python Workers 위의 Django
   d1_migrations/             Django 마이그레이션에서 생성. 직접 수정 금지
   scripts/                   export_d1_migrations.py, index_guide.py (CD)
 frontend/src/                기능마다 폴더 하나 (chat/, logs/, guide/, ...), 테스트는 코드 옆에
-docs/user-guide/             NN-<topic>.md: 유저 가이드 페이지이자 RAG 원본
+docs/user-guide/<lang>/      en(원본), es, fr, ko의 NN-<topic>.md: 유저 가이드 페이지이자 RAG 원본
 ux-flows/                    NN-<feature>.md Mermaid 플로차트 + 뷰어 (index.html, build.py)
 e2e/                         scenarios/catalog.json, tests/*.spec.js, 커버리지 리포트 스크립트
 scripts/                     check-consistency, new-project, build-site, dev, unit-summary
@@ -109,12 +109,24 @@ scripts/                     check-consistency, new-project, build-site, dev, un
   (`LogsPage`, `HelpChat` 참고). `test/render.tsx`(`renderAt`)를 씁니다.
 - 동작이 없어지거나 바뀌면 테스트를 지우거나 다시 씁니다. 실패하는 테스트를 skip해서 통과시키지 않습니다.
 
-### 4.5 유저 가이드 (`docs/user-guide/`)
+### 4.5 유저 가이드 (`docs/user-guide/<lang>/`)
 
 - `NN-<topic>.md`, `# 제목`으로 시작. `##` 섹션은 Help 도우미의 링크 앵커가 됩니다
   (slug 규칙은 `rag/chunking.py`와 `guide/slug.ts`가 공유).
 - 최종 사용자용으로 씁니다: 무엇을 누르는지, 무엇이 보이는지, 오류가 무슨 뜻인지. 구현 세부 사항은 쓰지 않습니다.
 - 이 파일들은 **유저 가이드 메뉴**이자 **RAG 원본**입니다. CD가 바뀐 섹션을 다시 인덱싱합니다.
+- 영어(`en/`)가 원본입니다. 바꿀 때는 같은 커밋에서 네 언어(`en`, `es`, `fr`, `ko`) 모두를 같은 파일 이름과
+  그 언어의 UI 문구로 고칩니다. 번역이 빠지면 `npm run check`가 실패합니다.
+
+### 4.6 언어 (UI)
+
+- 사용자에게 보이는 모든 문자열은 `t()`(react-i18next)를 거칩니다. 키를 `frontend/src/i18n/locales/en.ts`에
+  추가하고 `es.ts`, `fr.ts`, `ko.ts`에 번역합니다(타입 검사: 키가 빠지면 tsc가 실패).
+- 사용자에게 보이는 카탈로그 값(장르, 형식, 언어)은 `values.*` 키를 쓰고, 저장 값은 영어로 둡니다.
+- API는 `lang`을 자동으로 받습니다(`api/client.ts`). 사용자가 읽는 서버 텍스트(자연어 해석 설명, Help 답변과
+  고정 답변, 생성된 설명)는 네 언어 모두 있어야 합니다.
+- 책 제목, 저자 이름, 개발자용 리포트(커버리지 리포트, UX flow, E2E 카탈로그)는 번역하지 않습니다.
+- E2E 테스트는 영어로 돕니다. 언어 시나리오는 `ux-flows/11-languages.md`에 있습니다.
 
 ## 5. 코드 규칙
 

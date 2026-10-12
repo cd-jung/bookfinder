@@ -4,48 +4,58 @@ from datetime import timedelta
 
 from django.db.models import F, Q
 
+from books.i18n import FORMAT_LABELS, GENRE_LABELS, LANGUAGE_LABELS
 from books.models import AWARDS, FORMATS, GENRES, LANGUAGES, Book
 from books.seed import TODAY
-from nlsearch.catalog import OPERATOR_WORDS, Catalog, Field, Template
+from nlsearch.catalog import Catalog, Field, Template
 from nlsearch.compiler import FilterValidationError
 
+YEAR_PHRASES = {
+    "en": {
+        "gt": "published after {v}",
+        "gte": "published in {v} or later",
+        "lt": "published before {v}",
+        "lte": "published in {v} or earlier",
+        "eq": "published in {v}",
+    },
+    "es": {
+        "gt": "publicado después de {v}",
+        "gte": "publicado en {v} o después",
+        "lt": "publicado antes de {v}",
+        "lte": "publicado en {v} o antes",
+        "eq": "publicado en {v}",
+    },
+    "fr": {
+        "gt": "publié après {v}",
+        "gte": "publié en {v} ou après",
+        "lt": "publié avant {v}",
+        "lte": "publié en {v} ou avant",
+        "eq": "publié en {v}",
+    },
+    "ko": {
+        "gt": "{v}년보다 나중에 출판",
+        "gte": "{v}년 또는 그 이후 출판",
+        "lt": "{v}년보다 먼저 출판",
+        "lte": "{v}년 또는 그 이전 출판",
+        "eq": "{v}년 출판",
+    },
+}
+STOCK_PHRASES = {
+    "en": ("in stock", "out of stock"),
+    "es": ("en stock", "agotado"),
+    "fr": ("en stock", "en rupture de stock"),
+    "ko": ("재고 있음", "품절"),
+}
 
-def _num(value):
-    return f"{value:g}" if isinstance(value, float) else str(value)
+
+def _year(op, value, lang):
+    phrases = YEAR_PHRASES.get(lang, YEAR_PHRASES["en"])
+    return phrases.get(op, phrases["eq"]).format(v=value) if op != "isnull" else f"published_year isnull {value}"
 
 
-def _words(label, unit="", under="under", over="over"):
-    """'price lt 20' -> 'price under $20'; 'rating gte 4' -> 'rating 4 or more'."""
-
-    def describe(op, value):
-        if op == "isnull":
-            return f"{label} is {'empty' if value else 'not empty'}"
-        v = f"{unit}{_num(value)}" if not isinstance(value, list) else ", ".join(map(str, value))
-        return {
-            "eq": f"{label} is {v}",
-            "lt": f"{label} {under} {v}",
-            "lte": f"{label} {v} or less",
-            "gt": f"{label} {over} {v}",
-            "gte": f"{label} {v} or more",
-            "in": f"{label} is one of {v}",
-            "icontains": f"{label} contains {v}",
-        }.get(op, f"{label} {OPERATOR_WORDS.get(op, op)} {v}")
-
-    return describe
-
-
-def _year(op, value):
-    return {
-        "gt": f"published after {value}",
-        "gte": f"published in {value} or later",
-        "lt": f"published before {value}",
-        "lte": f"published in {value} or earlier",
-        "eq": f"published in {value}",
-    }.get(op, f"published year {op} {value}")
-
-
-def _in_stock(_op, value):
-    return "in stock" if value else "out of stock"
+def _in_stock(_op, value, lang):
+    yes, no = STOCK_PHRASES.get(lang, STOCK_PHRASES["en"])
+    return yes if value else no
 
 
 def _award_winner(params, _alias):
@@ -88,20 +98,65 @@ def _similar_to(params, _alias):
     return {}, Q(genres_text__contains=f"|{book.genres[0]}|") & subjects & ~Q(pk=book.pk)
 
 
+def L(en, es, fr, ko):
+    return {"en": en, "es": es, "fr": fr, "ko": ko}
+
+
 FIELDS = {
-    "title": Field("string", "title", "Book title", label="title"),
-    "author": Field("string", "authors_text", "Author name, e.g. 'Han Kang'", label="author", tokens=True),
+    "title": Field("string", "title", "Book title", label=L("title", "título", "titre", "제목")),
+    "author": Field(
+        "string",
+        "authors_text",
+        "Author name, e.g. 'Han Kang'",
+        label=L("author", "autor", "auteur", "저자"),
+        tokens=True,
+    ),
     "isbn": Field("string", "isbn13", "ISBN-13 without hyphens", label="ISBN", operators={"eq", "in"}),
-    "publisher": Field("string", "publisher", "Publisher name", label="publisher"),
-    "genre": Field("enum", "genres_text", "Genre", label="genre", choices=list(GENRES), tokens=True),
-    "language": Field("enum", "language", "Language of the edition", label="language", choices=LANGUAGES),
-    "format": Field("enum", "formats_text", "Available format", label="format", choices=FORMATS, tokens=True),
+    "publisher": Field("string", "publisher", "Publisher name", label=L("publisher", "editorial", "éditeur", "출판사")),
+    "genre": Field(
+        "enum",
+        "genres_text",
+        "Genre",
+        label=L("genre", "género", "genre", "장르"),
+        choices=list(GENRES),
+        tokens=True,
+        value_labels=GENRE_LABELS,
+    ),
+    "language": Field(
+        "enum",
+        "language",
+        "Language of the edition",
+        label=L("language", "idioma", "langue", "언어"),
+        choices=LANGUAGES,
+        value_labels=LANGUAGE_LABELS,
+    ),
+    "format": Field(
+        "enum",
+        "formats_text",
+        "Available format",
+        label=L("format", "formato", "format", "형식"),
+        choices=FORMATS,
+        tokens=True,
+        value_labels=FORMAT_LABELS,
+    ),
     "published_year": Field("number", "published_year", "Year of first publication", describe=_year),
-    "published_date": Field("date", "published_date", "Publication date", label="published"),
-    "page_count": Field("number", "page_count", "Number of pages ('short' ~ under 250)", describe=_words("pages")),
-    "price": Field("number", "min_price", "Lowest price across formats, in USD", describe=_words("price", "$")),
-    "rating": Field("number", "avg_rating", "Average rating 0-5", describe=_words("rating")),
-    "rating_count": Field("number", "rating_count", "Number of ratings", describe=_words("ratings")),
+    "published_date": Field(
+        "date", "published_date", "Publication date", label=L("published", "publicado", "publié", "출판일")
+    ),
+    "page_count": Field(
+        "number", "page_count", "Number of pages ('short' ~ under 250)", label=L("pages", "páginas", "pages", "쪽수")
+    ),
+    "price": Field(
+        "number",
+        "min_price",
+        "Lowest price across formats, in USD",
+        label=L("price", "precio", "prix", "가격"),
+        unit="$",
+    ),
+    "rating": Field("number", "avg_rating", "Average rating 0-5", label=L("rating", "valoración", "note", "평점")),
+    "rating_count": Field(
+        "number", "rating_count", "Number of ratings", label=L("ratings", "valoraciones", "avis", "평가 수")
+    ),
     "in_stock": Field("boolean", "in_stock", "At least one format in stock", describe=_in_stock),
 }
 
@@ -110,12 +165,19 @@ TEMPLATES = {
         "Book won an award",
         {"award": {"type": "enum", "choices": AWARDS}, "since_year": {"type": "number"}},
         _award_winner,
+        label=L("award_winner", "ganador de premio", "lauréat d'un prix", "수상작"),
     ),
     "series_book": Template(
-        "Book is part of a series", {"position": {"type": "enum", "choices": ["first", "latest"]}}, _series_book
+        "Book is part of a series",
+        {"position": {"type": "enum", "choices": ["first", "latest"]}},
+        _series_book,
+        label=L("series_book", "libro de una serie", "livre d'une série", "시리즈 도서"),
     ),
     "new_release": Template(
-        "Published within the last N days", {"days": {"type": "number", "required": True}}, _new_release
+        "Published within the last N days",
+        {"days": {"type": "number", "required": True}},
+        _new_release,
+        label=L("new_release", "novedad", "nouveauté", "신간"),
     ),
     "author_count": Template(
         "Number of authors",
@@ -124,11 +186,13 @@ TEMPLATES = {
             "value": {"type": "number", "required": True},
         },
         _author_count,
+        label=L("author_count", "número de autores", "nombre d'auteurs", "저자 수"),
     ),
     "similar_to": Template(
         "Shares the genre and at least one subject tag with the book with that ISBN",
         {"isbn": {"type": "string", "required": True}},
         _similar_to,
+        label=L("similar_to", "similar a", "semblable à", "비슷한 책"),
     ),
 }
 
@@ -136,6 +200,12 @@ TEMPLATES = {
 EXAMPLES = [
     {
         "question": "Korean novels after 2015 under $20 with 4+ stars",
+        "chip": True,
+        "translations": {
+            "es": "novelas coreanas después de 2015 por menos de $20 con 4+ estrellas",
+            "fr": "romans coréens après 2015 à moins de 20 $ avec 4+ étoiles",
+            "ko": "2015년 이후 20달러 미만 별점 4점 이상 한국 소설",
+        },
         "expected_filter": {
             "and": [
                 {"field": "language", "op": "eq", "value": "Korean"},
@@ -149,6 +219,12 @@ EXAMPLES = [
     },
     {
         "question": "fantasy or sci-fi, but not audiobooks",
+        "chip": True,
+        "translations": {
+            "es": "fantasía o ciencia ficción, pero no audiolibros",
+            "fr": "fantasy ou science-fiction, mais pas de livres audio",
+            "ko": "판타지나 SF, 오디오북은 제외",
+        },
         "expected_filter": {
             "and": [
                 {
@@ -164,6 +240,12 @@ EXAMPLES = [
     },
     {
         "question": "Hugo award winners since 2010 that are in stock",
+        "chip": True,
+        "translations": {
+            "es": "ganadores del premio Hugo desde 2010 en stock",
+            "fr": "lauréats du prix Hugo depuis 2010 en stock",
+            "ko": "2010년 이후 휴고상 수상작 중 재고 있는 책",
+        },
         "expected_filter": {
             "and": [
                 {"template": "award_winner", "params": {"award": "Hugo", "since_year": 2010}},

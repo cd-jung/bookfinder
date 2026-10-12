@@ -5,6 +5,7 @@ import json
 from django.http import JsonResponse
 
 from core import llm
+from core.i18n import pick, request_lang
 from nlsearch.compiler import FilterValidationError, apply_filter
 from nlsearch.translate import QuestionError, UntranslatableError, translate
 
@@ -16,7 +17,7 @@ def translate_response(catalog, request):
     except json.JSONDecodeError:
         return JsonResponse({"detail": "Request body must be JSON"}, status=400)
     try:
-        return JsonResponse(translate(catalog, body.get("question")))
+        return JsonResponse(translate(catalog, body.get("question"), request_lang(request)))
     except QuestionError as exc:
         return JsonResponse({"detail": str(exc)}, status=400)
     except UntranslatableError as exc:
@@ -38,3 +39,10 @@ def filter_from_request(catalog, request, queryset):
         return apply_filter(catalog, queryset, node), None
     except (json.JSONDecodeError, FilterValidationError) as exc:
         return queryset, JsonResponse({"nl_filter": str(exc)}, status=400)
+
+
+def examples_response(catalog, request):
+    """GET -> {"examples": [...]}: the catalogue's chip questions in the request's language."""
+    lang = request_lang(request)
+    chips = [e for e in catalog.examples if e.get("chip")]
+    return JsonResponse({"examples": [pick({"en": e["question"], **e.get("translations", {})}, lang) for e in chips]})

@@ -103,7 +103,7 @@ test.describe('Filters', () => {
   test('[FLT-005] language, format and minimum rating each narrow the results', async ({ page, request }) => {
     await page.goto('/');
     await results(page);
-    await page.getByRole('combobox', { name: 'Language' }).click();
+    await page.getByRole('combobox', { name: 'Language', exact: true }).click();
     await act(page, () => page.getByRole('option', { name: /^Japanese/ }).click());
     for (const l of await page.getByTestId('book-card-language').allInnerTexts()) expect(l).toBe('Japanese');
     await act(page, () => page.getByRole('checkbox', { name: /^Audiobook/ }).click());

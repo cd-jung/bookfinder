@@ -17,8 +17,10 @@
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^9.5.0",
     "@mui/material": "^9.5.0",
+    "i18next": "^25.10.10",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-i18next": "^16.6.6",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.4"
   },

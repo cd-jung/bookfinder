@@ -4,7 +4,10 @@ import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
 import { ApiError } from '../api/client';
 import { renderAt } from '../test/render';
-import { MAX_QUESTION, SUGGESTED_QUESTIONS, type ChatApi } from './api';
+import { en } from '../i18n/locales/en';
+import { MAX_QUESTION, type ChatApi } from './api';
+
+const SUGGESTED_QUESTIONS = en.help.suggestions;
 import { ChatProvider } from './ChatContext';
 import HelpChat from './HelpChat';
 import { useChat } from './useChat';

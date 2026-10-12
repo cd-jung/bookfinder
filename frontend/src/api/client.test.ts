@@ -8,13 +8,13 @@ describe('api client', () => {
   it('builds query strings and skips empty params', async () => {
     const fetchMock = respond(200, { ok: true });
     await getJson('/api/x', { a: 1, b: '', c: undefined, d: 'two words' });
-    expect(fetchMock).toHaveBeenCalledWith('/api/x?a=1&d=two+words', undefined);
+    expect(fetchMock).toHaveBeenCalledWith('/api/x?a=1&d=two+words&lang=en', undefined);
   });
 
   it('posts JSON', async () => {
     const fetchMock = respond(200, { ok: true });
     await postJson('/api/y', { q: 1 });
-    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST', body: '{"q":1}' });
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST', body: '{"q":1,"lang":"en"}' });
   });
 
   it('raises ApiError with the backend detail and code', async () => {

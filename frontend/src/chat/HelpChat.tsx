@@ -32,36 +32,49 @@ import ThumbUpOutlined from '@mui/icons-material/ThumbUpOutlined';
 import ThumbDownOutlined from '@mui/icons-material/ThumbDownOutlined';
 import DeleteSweepOutlined from '@mui/icons-material/DeleteSweepOutlined';
 import { ApiError } from '../api/client';
-import { chatApi, MAX_QUESTION, SUGGESTED_QUESTIONS, TIMEOUT_MS, type ChatApi } from './api';
+import { APP_NAME } from '../config';
+import { useTranslation } from 'react-i18next';
+import { chatApi, MAX_QUESTION, TIMEOUT_MS, type ChatApi } from './api';
 import { useChat } from './useChat';
 import { useChatStore, type Message } from './useChatStore';
 
-function errorText(error: unknown) {
-  if (error instanceof DOMException && error.name === 'TimeoutError') return 'The assistant took too long to respond. Please try again.';
-  if (error instanceof ApiError) return error.status === 0 ? 'The assistant is unavailable. Please try again later.' : error.detail;
-  return 'Something went wrong. Please try again.';
+type T = (key: string, options?: Record<string, unknown>) => string;
+
+function errorText(error: unknown, t: T) {
+  if (error instanceof DOMException && error.name === 'TimeoutError') return t('help.errors.timeout');
+  if (error instanceof ApiError) {
+    if (error.status === 0 || error.code === 'llm_unavailable') return t('help.errors.unavailable');
+    if (error.status === 429) {
+      const seconds = (error.body as { retryAfter?: number } | null)?.retryAfter ?? 60;
+      return t('help.errors.tooMany', { seconds });
+    }
+    if (error.code === 'llm_timeout') return t('help.errors.timeout');
+    return error.detail;
+  }
+  return t('help.errors.generic');
 }
 
 function Feedback({ message, question, api }: { message: Message; question: string; api: ChatApi }) {
+  const { t } = useTranslation();
   const [state, setState] = useState<'idle' | 'comment' | 'sent'>('idle');
   const [comment, setComment] = useState('');
   const send = (helpful: boolean, text = '') => {
     setState('sent');
     void api.feedback({ question, answer: message.text, helpful, comment: text }).catch(() => undefined);
   };
-  if (state === 'sent') return <Typography variant="caption" color="text.secondary" role="status">Thanks for the feedback</Typography>;
+  if (state === 'sent') return <Typography variant="caption" color="text.secondary" role="status">{t('help.thanks')}</Typography>;
   if (state === 'comment') {
     return (
       <Stack direction="row" spacing={1} sx={{ mt: 1, alignItems: 'center' }}>
-        <TextField size="small" value={comment} onChange={(e) => setComment(e.target.value.slice(0, 1000))} placeholder="What was wrong? (optional)" slotProps={{ htmlInput: { 'aria-label': 'Feedback comment' } }} />
-        <Button size="small" onClick={() => send(false, comment)}>Submit</Button>
+        <TextField size="small" value={comment} onChange={(e) => setComment(e.target.value.slice(0, 1000))} placeholder={t('help.commentPlaceholder')} slotProps={{ htmlInput: { 'aria-label': t('help.commentLabel') } }} />
+        <Button size="small" onClick={() => send(false, comment)}>{t('help.submit')}</Button>
       </Stack>
     );
   }
   return (
     <>
-      <Tooltip title="Helpful"><IconButton size="small" aria-label="Helpful" onClick={() => send(true)}><ThumbUpOutlined fontSize="small" /></IconButton></Tooltip>
-      <Tooltip title="Not helpful"><IconButton size="small" aria-label="Not helpful" onClick={() => setState('comment')}><ThumbDownOutlined fontSize="small" /></IconButton></Tooltip>
+      <Tooltip title={t('help.helpful')}><IconButton size="small" aria-label={t('help.helpful')} onClick={() => send(true)}><ThumbUpOutlined fontSize="small" /></IconButton></Tooltip>
+      <Tooltip title={t('help.notHelpful')}><IconButton size="small" aria-label={t('help.notHelpful')} onClick={() => setState('comment')}><ThumbDownOutlined fontSize="small" /></IconButton></Tooltip>
     </>
   );
 }
@@ -71,6 +84,8 @@ export default function HelpChat({ api = chatApi }: { api?: ChatApi }) {
   const theme = useTheme();
   const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const chat = useChat();
+  const { t } = useTranslation();
+  const suggestions = t('help.suggestions', { returnObjects: true }) as unknown as string[];
   const [localOpen, setLocalOpen] = useState(false);
   const open = chat.open || localOpen;
   const [draft, setDraft] = useState('');
@@ -114,9 +129,9 @@ export default function HelpChat({ api = chatApi }: { api?: ChatApi }) {
       add({ role: 'assistant', text: result.answer, sources: result.sources, question: text });
     } catch (error) {
       if (controller.signal.aborted && controller.signal.reason?.name !== 'TimeoutError') {
-        add({ role: 'assistant', text: 'Stopped.', stopped: true, question: text });
+        add({ role: 'assistant', text: t('help.stopped'), stopped: true, question: text });
       } else {
-        add({ role: 'assistant', text: errorText(controller.signal.reason ?? error), error: true, question: text });
+        add({ role: 'assistant', text: errorText(controller.signal.reason ?? error, t), error: true, question: text });
       }
     } finally {
       clearTimeout(timer);
@@ -135,9 +150,9 @@ export default function HelpChat({ api = chatApi }: { api?: ChatApi }) {
   const copyAnswer = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text.replace(/\*\*|`/g, ''));
-      setCopied('Answer copied');
+      setCopied(t('help.copied'));
     } catch {
-      setCopied('Copy failed');
+      setCopied(t('help.copyFailed'));
     }
     setTimeout(() => setCopied(''), 2000);
   };
@@ -146,7 +161,7 @@ export default function HelpChat({ api = chatApi }: { api?: ChatApi }) {
     return (
       <Fab variant="extended" color="primary" onClick={() => setLocalOpen(true)} sx={{ position: 'fixed', right: 24, bottom: 24 }}>
         <HelpOutlined sx={{ mr: 1 }} />
-        Help
+        {t('help.open')}
       </Fab>
     );
   }
@@ -155,7 +170,7 @@ export default function HelpChat({ api = chatApi }: { api?: ChatApi }) {
     <TrapFocus open>
       <Paper
         component="aside"
-        aria-label="Help chat"
+        aria-label={t('help.panel')}
         elevation={8}
         onKeyDown={(e) => e.key === 'Escape' && !confirmClear && close()}
         sx={{
@@ -168,23 +183,23 @@ export default function HelpChat({ api = chatApi }: { api?: ChatApi }) {
         data-testid="help-chat"
       >
         <Stack direction="row" sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider', alignItems: 'center' }}>
-          <Typography variant="subtitle1" component="h2" sx={{ flex: 1 }}>Help</Typography>
-          <Tooltip title="New conversation">
+          <Typography variant="subtitle1" component="h2" sx={{ flex: 1 }}>{t('help.title')}</Typography>
+          <Tooltip title={t('help.newConversation')}>
             <span>
-              <IconButton aria-label="New conversation" onClick={() => setConfirmClear(true)} disabled={!messages.length || busy}>
+              <IconButton aria-label={t('help.newConversation')} onClick={() => setConfirmClear(true)} disabled={!messages.length || busy}>
                 <DeleteSweepOutlined />
               </IconButton>
             </span>
           </Tooltip>
-          <IconButton aria-label="Close help" onClick={close}><CloseIcon /></IconButton>
+          <IconButton aria-label={t('help.closeHelp')} onClick={close}><CloseIcon /></IconButton>
         </Stack>
 
         <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }} aria-live="polite">
-          <Typography sx={{ mb: 1 }}>Hi! I can explain how to use BookFinder. What would you like to know?</Typography>
-          <Alert severity="info" icon={false} sx={{ mb: 1.5 }}>Answers come from the User Guide and may be inaccurate.</Alert>
+          <Typography sx={{ mb: 1 }}>{t('help.welcome', { app: APP_NAME })}</Typography>
+          <Alert severity="info" icon={false} sx={{ mb: 1.5 }}>{t('help.disclaimer')}</Alert>
           {!messages.length && (
-            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mb: 2 }} aria-label="Suggested questions">
-              {SUGGESTED_QUESTIONS.map((q) => (
+            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mb: 2 }} aria-label={t('help.suggested')}>
+              {suggestions.map((q) => (
                 <Chip key={q} label={q} variant="outlined" onClick={() => void send(q)} data-testid="suggested-question" />
               ))}
             </Stack>
@@ -196,13 +211,13 @@ export default function HelpChat({ api = chatApi }: { api?: ChatApi }) {
                   {m.text}
                 </Box>
               ) : m.error ? (
-                <Alert key={m.id} severity="error" data-testid="chat-error" action={<Button color="inherit" size="small" onClick={() => void send(m.question ?? '', true)} disabled={busy}>Retry</Button>}>
+                <Alert key={m.id} severity="error" data-testid="chat-error" action={<Button color="inherit" size="small" onClick={() => void send(m.question ?? '', true)} disabled={busy}>{t('common.retry')}</Button>}>
                   {m.text}
                 </Alert>
               ) : (
                 <Box key={m.id} data-testid="chat-answer" data-stopped={m.stopped ? 'true' : undefined} sx={{ bgcolor: 'action.hover', px: 1.5, py: 1, borderRadius: 2, maxWidth: '95%', overflowWrap: 'anywhere', '& p': { my: 0.5 } }}>
                   {m.stopped ? (
-                    <Typography color="text.secondary" sx={{ fontStyle: 'italic' }}>Stopped.</Typography>
+                    <Typography color="text.secondary" sx={{ fontStyle: 'italic' }}>{t('help.stopped')}</Typography>
                   ) : (
                     <Markdown
                       skipHtml
@@ -214,7 +229,7 @@ export default function HelpChat({ api = chatApi }: { api?: ChatApi }) {
                     </Markdown>
                   )}
                   {!!m.sources?.length && (
-                    <Stack component="ul" spacing={0.5} sx={{ pl: 2, mt: 1, mb: 0 }} aria-label="Sources">
+                    <Stack component="ul" spacing={0.5} sx={{ pl: 2, mt: 1, mb: 0 }} aria-label={t('help.sources')}>
                       {m.sources.map((s) => (
                         <li key={s.url}>
                           <Link component={RouterLink} to={s.url} data-testid="chat-source" onClick={() => fullScreen && close()}>
@@ -226,7 +241,7 @@ export default function HelpChat({ api = chatApi }: { api?: ChatApi }) {
                   )}
                   {!m.stopped && (
                     <Stack direction="row" sx={{ mt: 0.5, alignItems: 'center' }}>
-                      <Tooltip title="Copy answer"><IconButton size="small" aria-label="Copy answer" onClick={() => void copyAnswer(m.text)}><ContentCopy fontSize="small" /></IconButton></Tooltip>
+                      <Tooltip title={t('help.copyAnswer')}><IconButton size="small" aria-label={t('help.copyAnswer')} onClick={() => void copyAnswer(m.text)}><ContentCopy fontSize="small" /></IconButton></Tooltip>
                       <Feedback message={m} question={m.question ?? ''} api={api} />
                     </Stack>
                   )}
@@ -236,8 +251,8 @@ export default function HelpChat({ api = chatApi }: { api?: ChatApi }) {
             {busy && (
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }} role="status" data-testid="chat-typing">
                 <CircularProgress size={16} />
-                <Typography variant="body2" sx={{ flex: 1 }}>Looking it up…</Typography>
-                <Button size="small" startIcon={<StopIcon />} onClick={() => abortRef.current?.abort()}>Stop generating</Button>
+                <Typography variant="body2" sx={{ flex: 1 }}>{t('help.thinking')}</Typography>
+                <Button size="small" startIcon={<StopIcon />} onClick={() => abortRef.current?.abort()}>{t('help.stop')}</Button>
               </Stack>
             )}
             {copied && <Typography variant="caption" role="status">{copied}</Typography>}
@@ -251,25 +266,25 @@ export default function HelpChat({ api = chatApi }: { api?: ChatApi }) {
             value={draft}
             onChange={(e) => setDraft(e.target.value.slice(0, MAX_QUESTION))}
             onKeyDown={onKeyDown}
-            placeholder="Ask a question"
+            placeholder={t('help.input')}
             multiline
             maxRows={4}
             fullWidth
             size="small"
             disabled={busy}
-            slotProps={{ htmlInput: { maxLength: MAX_QUESTION, 'aria-label': 'Ask a question' } }}
+            slotProps={{ htmlInput: { maxLength: MAX_QUESTION, 'aria-label': t('help.input') } }}
             helperText={draft.length > MAX_QUESTION - 100 ? `${draft.length}/${MAX_QUESTION}` : undefined}
           />
-          <IconButton color="primary" aria-label="Send" onClick={() => void send(draft)} disabled={!draft.trim() || busy}>
+          <IconButton color="primary" aria-label={t('help.send')} onClick={() => void send(draft)} disabled={!draft.trim() || busy}>
             <SendIcon />
           </IconButton>
         </Stack>
 
         <Dialog open={confirmClear} onClose={() => setConfirmClear(false)} aria-labelledby="clear-chat-title" disablePortal>
-          <DialogTitle id="clear-chat-title">Start a new conversation?</DialogTitle>
-          <DialogContent>The current conversation will be cleared.</DialogContent>
+          <DialogTitle id="clear-chat-title">{t('help.confirmTitle')}</DialogTitle>
+          <DialogContent>{t('help.confirmBody')}</DialogContent>
           <DialogActions>
-            <Button onClick={() => setConfirmClear(false)}>Cancel</Button>
+            <Button onClick={() => setConfirmClear(false)}>{t('common.cancel')}</Button>
             <Button
               variant="contained"
               onClick={() => {
@@ -278,7 +293,7 @@ export default function HelpChat({ api = chatApi }: { api?: ChatApi }) {
                 inputRef.current?.focus();
               }}
             >
-              Clear
+              {t('help.clear')}
             </Button>
           </DialogActions>
         </Dialog>

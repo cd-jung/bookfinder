@@ -169,32 +169,39 @@ def coerce(spec, op, value, name="field"):
         raise FilterValidationError(f"Invalid value for '{name}': {value!r}") from exc
 
 
-def describe_filter(catalog, node):
-    """Human-readable text shown as 'Interpreted as'; 1:1 with the filter structure."""
-    if "and" in node:
-        return "(" + " AND ".join(describe_filter(catalog, c) for c in node["and"]) + ")"
-    if "or" in node:
-        return "(" + " OR ".join(describe_filter(catalog, c) for c in node["or"]) + ")"
-    if "not" in node:
-        return "NOT " + describe_filter(catalog, node["not"])
-    if "field" in node:
-        from nlsearch.catalog import OPERATOR_WORDS
+def describe_filter(catalog, node, lang="en"):
+    """Human-readable text shown as 'Interpreted as', in `lang`; 1:1 with the filter structure."""
+    from core.i18n import pick
+    from nlsearch.catalog import PHRASES
 
+    words = PHRASES.get(lang, PHRASES["en"])
+    if "and" in node or "or" in node:
+        key = "and" if "and" in node else "or"
+        return "(" + words[key].join(describe_filter(catalog, c, lang) for c in node[key]) + ")"
+    if "not" in node:
+        return words["not"].format(x=describe_filter(catalog, node["not"], lang))
+    if "field" in node:
         spec = catalog.fields[node["field"]]
-        label = spec.label or node["field"]
-        value = node.get("value")
+        label = pick(spec.label, lang) or node["field"]
+        op, value = node["op"], node.get("value")
         if spec.describe:
-            return spec.describe(node["op"], value)
-        if node["op"] == "isnull":
-            return f"{label} is {'empty' if value else 'not empty'}"
-        if isinstance(value, list):
-            value = ", ".join(str(v) for v in value)
+            return spec.describe(op, value, lang)
+        if op == "isnull":
+            return words["empty" if value else "not_empty"].format(label=label)
         if isinstance(value, bool):
-            return f"{label}" if value else f"not {label}"
-        return f"{label} {OPERATOR_WORDS[node['op']]} {value}"
+            return words["true" if value else "false"].format(label=label)
+
+        def show(v):
+            labels = (spec.value_labels or {}).get(lang, {})
+            if isinstance(v, int | float) and not isinstance(v, bool):
+                return f"{spec.unit}{v:g}" if isinstance(v, float) else f"{spec.unit}{v}"
+            return str(labels.get(v, v))
+
+        shown = ", ".join(show(v) for v in value) if isinstance(value, list) else show(value)
+        return words[op].format(label=label, v=shown)
     template = catalog.templates[node["template"]]
     params = node.get("params") or {}
-    label = template.label or node["template"]
+    label = pick(template.label, lang) or node["template"]
     if not params:
         return label
     return f"{label}(" + ", ".join(f"{k}={v}" for k, v in params.items()) + ")"

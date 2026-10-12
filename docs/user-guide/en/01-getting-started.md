@@ -14,6 +14,13 @@ The left menu has four sections:
 Click **BookFinder** at the top to start a new, empty search. On a small screen, open the menu with the
 menu button in the top-left corner.
 
+## Choosing your language
+
+BookFinder is available in English, Spanish (Español), French (Français) and Korean (한국어). Choose a
+language from **Display language** in the top-right corner. Menus, pages, this User Guide and the Help
+assistant switch to that language, and BookFinder remembers your choice on this device. Book titles and
+author names are shown as published.
+
 ## Sharing and bookmarking a search
 
 The address in your browser keeps your search: the keyword, filters, sort order, page and the open

@@ -8,7 +8,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from logs.catalog import LOG_CATALOG
 from logs.models import RequestLog
-from nlsearch.views import filter_from_request, translate_response
+from nlsearch.views import examples_response, filter_from_request, translate_response
 
 PAGE_SIZE = 50
 
@@ -81,3 +81,8 @@ def stats(request):
             "perHour": sorted(per_hour.values(), key=lambda s: s["hour"]),
         }
     )
+
+
+@require_GET
+def nl_examples(request):
+    return examples_response(LOG_CATALOG, request)

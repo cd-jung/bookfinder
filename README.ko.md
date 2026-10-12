@@ -33,6 +33,8 @@ Cloudflare Workers Static Assets(새 Cloudflare Pages)의 React + MUI 프론트�
 | 자연어 안전장치 | D1에는 Postgres 읽기 전용 트랜잭션 / statement timeout이 없음. ORM `filter()`만 쓰고, 필터를 두 번 검증하고, 느리면 "Search took too long" 표시 | D1에는 `SET LOCAL`이 없음 |
 | 요청 제한 | `/api/nl-search/translate`와 `/api/rag/answers`에 클라이언트당 분당 10회 (429 + Retry-After), `RequestLog`로 계산 | 다른 서비스 없이 Worker isolate끼리 공유. 로컬 E2E에서는 끔(`RATE_LIMITS=0`) |
 | 시드 | CD 단계 `scripts/seed_d1.sh`가 `books_book`이 비어 있을 때만 한 번 책을 넣음 | 반복 쓰기 방지 |
+| 다국어 | 메뉴, 화면, 유저 가이드, Help, 자연어 해석 설명, 장르·형식·언어 이름, 생성된 책 설명을 영어·스페인어·프랑스어·한국어로 제공. 우상단 **표시 언어** 선택(기기별 저장, 처음에는 브라우저 언어) | 사용자 요청(2026-10-12). 책 제목, 저자 이름, 개발자용 리포트는 번역하지 않음 |
+| 언어별 Help | 언어마다 유저 가이드를 따로 인덱싱(`<lang>/<page>#n`). 검색은 UI 언어만 쓰고, 프롬프트에 답변 언어를 명시 | 링크가 사용자가 읽는 언어의 가이드를 열도록 |
 
 ---
 

@@ -7,7 +7,7 @@ import { ChatProvider } from '../chat/ChatContext';
 import HelpChat from '../chat/HelpChat';
 import { renderAt } from '../test/render';
 import type { BookCardData, BookDetail, BookPage, BooksApi, Facets } from './api';
-import { HELP_PREFILL_EMPTY } from './constants';
+import { en } from '../i18n/locales/en';
 import SearchPage from './SearchPage';
 
 const facets: Facets = {
@@ -38,6 +38,7 @@ function makeApi(overrides: Partial<BooksApi> = {}): BooksApi {
     detail: vi.fn((id: number) => Promise.resolve(detail(id))),
     authors: vi.fn().mockResolvedValue({ results: ['Han Kang'] }),
     translate: vi.fn().mockResolvedValue({ filter: { field: 'language', op: 'eq', value: 'Korean' }, description: 'language is Korean' }),
+    examples: vi.fn().mockResolvedValue({ examples: ['first example', 'fantasy or sci-fi, but not audiobooks'] }),
     ...overrides,
   };
 }
@@ -126,7 +127,7 @@ describe('SearchPage', () => {
     list.mockResolvedValue(page([]));
     await userEvent.type(screen.getByRole('searchbox', { name: 'Search books' }), 'zzz{Enter}');
     await userEvent.click(await screen.findByRole('button', { name: 'Get help' }));
-    expect(await screen.findByRole('textbox', { name: 'Ask a question' })).toHaveValue(HELP_PREFILL_EMPTY);
+    expect(await screen.findByRole('textbox', { name: 'Ask a question' })).toHaveValue(en.search.helpPrefill);
     expect(api.list).toHaveBeenCalled();
   });
 
@@ -153,7 +154,7 @@ describe('SearchPage', () => {
   it.each([
     [new ApiError(422, { detail: 'x' }), 'The question could not be translated. Please rephrase it.'],
     [new ApiError(502, { detail: 'x' }), 'The AI search is unavailable. Use keyword search instead.'],
-    [new ApiError(429, { detail: 'Too many questions, please wait 5 seconds' }), 'Too many questions, please wait 5 seconds'],
+    [new ApiError(429, { detail: 'x', retryAfter: 5 }), 'Too many questions, please wait 5 seconds'],
   ])('maps translate errors', async (error, message) => {
     setup(makeApi({ translate: vi.fn().mockRejectedValue(error) }), '/?mode=nl&q=x');
     expect(await screen.findByTestId('nl-error')).toHaveTextContent(message);

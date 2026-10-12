@@ -31,6 +31,8 @@ Project decisions on top of the template:
 | NL guard rails | No Postgres read-only transaction / statement timeout on D1; queries are ORM `filter()` only, the filter is validated twice, and a slow response shows "Search took too long" | D1 has no `SET LOCAL` |
 | Rate limits | 10 questions/minute per client on `/api/nl-search/translate` and `/api/rag/answers` (429 with Retry-After), counted in `RequestLog` | Shared across Worker isolates without another service; off in local E2E (`RATE_LIMITS=0`) |
 | Seeding | CD step `scripts/seed_d1.sh` loads the books once, only while `books_book` is empty | Avoids repeated writes |
+| Languages | English, Spanish, French and Korean for menus, pages, User Guide, Help, NL descriptions, genre / format / language names and generated book descriptions; **Display language** select top right (saved per device, browser language first) | User request (2026-10-12). Titles, author names and developer reports stay untranslated |
+| Help per language | Each language's User Guide is indexed separately (`<lang>/<page>#n`); retrieval keeps the UI language and the prompt names the answer language | Links open the guide in the language the user reads |
 
 ---
 
