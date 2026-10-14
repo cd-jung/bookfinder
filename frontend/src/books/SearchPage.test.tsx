@@ -152,12 +152,26 @@ describe('SearchPage', () => {
   });
 
   it.each([
-    [new ApiError(422, { detail: 'x' }), 'The question could not be translated. Please rephrase it.'],
+    [new ApiError(422, { detail: 'x' }), "BookFinder couldn't turn this question into a search."],
     [new ApiError(502, { detail: 'x' }), 'The AI search is unavailable. Use keyword search instead.'],
     [new ApiError(429, { detail: 'x', retryAfter: 5 }), 'Too many questions, please wait 5 seconds'],
   ])('maps translate errors', async (error, message) => {
     setup(makeApi({ translate: vi.fn().mockRejectedValue(error) }), '/?mode=nl&q=x');
     expect(await screen.findByTestId('nl-error')).toHaveTextContent(message);
+  });
+
+  it('offers Try keyword search when the question cannot be translated', async () => {
+    setup(makeApi({ translate: vi.fn().mockRejectedValue(new ApiError(422, { detail: 'x' })) }), '/?mode=nl&q=books written in Australia');
+    const error = await screen.findByTestId('nl-error');
+    expect(error).toHaveTextContent('You can ask about the title, author');
+    await userEvent.click(within(error).getByRole('button', { name: 'Try keyword search' }));
+    expect(url()).toBe('');
+  });
+
+  it('does not offer Try keyword search on the rate-limit message', async () => {
+    setup(makeApi({ translate: vi.fn().mockRejectedValue(new ApiError(429, { detail: 'x', retryAfter: 5 })) }), '/?mode=nl&q=x');
+    const error = await screen.findByTestId('nl-error');
+    expect(within(error).queryByRole('button', { name: 'Try keyword search' })).toBeNull();
   });
 
   it('shows Try keyword search when the AI search finds nothing', async () => {

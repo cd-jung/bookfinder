@@ -24,7 +24,7 @@ Click **Edit as filters** to copy the understood conditions into the filters and
 
 ## Messages you may see
 
-- **The question could not be translated. Please rephrase it.**: the question is not about books, or asks for something BookFinder cannot search.
+- **BookFinder couldn't turn this question into a search.**: the question is not about books, or asks for something BookFinder cannot search, such as the country a book was written in. The message lists what you can ask about: the title, author, publisher, genre, language, format, publication year, pages, price, rating, stock, award winners, series and new releases. Rephrase the question, or click **Try keyword search** to switch to the keyword search.
 - **The AI search is unavailable. Use keyword search instead.**: try again later or use the keyword search.
 - **Search took too long, try a narrower question**: add more conditions to your question.
 - **Too many questions, please wait N seconds**: you asked more than 10 questions in a minute.

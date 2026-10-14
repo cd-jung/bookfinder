@@ -783,6 +783,19 @@
           ]
         },
         {
+          "id": "NLG-006",
+          "priority": "secondary",
+          "rule": "S2",
+          "account": "llm_stub",
+          "group": "Guard rails",
+          "title": "A question the catalogue cannot express (e.g. 'books written in Australia') shows what can be searched and 'Try keyword search' switches to the Keyword tab",
+          "nodes": [
+            "04:llm",
+            "04:invalid",
+            "04:keyword"
+          ]
+        },
+        {
           "id": "NLE-001",
           "priority": "core",
           "rule": "C5",

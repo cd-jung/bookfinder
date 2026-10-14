@@ -67,7 +67,7 @@ export const fr: Messages = {
     "facetsError": "Impossible de charger les filtres du catalogue.",
     "bookNotFound": "Livre introuvable",
     "errors": {
-      "untranslatable": "La question n’a pas pu être interprétée. Reformulez-la.",
+      "untranslatable": "BookFinder n’a pas pu transformer cette question en recherche. Vous pouvez interroger le titre, l’auteur, l’éditeur, le genre, la langue, le format, l’année de publication, le nombre de pages, le prix, la note, la disponibilité, les livres primés, les séries et les nouveautés. Reformulez la question ou essayez la recherche par mots-clés.",
       "aiDown": "La recherche par IA est indisponible. Utilisez la recherche par mots-clés.",
       "tooMany": "Trop de questions, patientez {{seconds}} secondes",
       "slow": "La recherche a pris trop de temps ; essayez une question plus précise",

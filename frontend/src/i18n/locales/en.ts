@@ -66,7 +66,7 @@ export const en = {
     "facetsError": "Could not load the catalogue filters.",
     "bookNotFound": "Book not found",
     "errors": {
-      "untranslatable": "The question could not be translated. Please rephrase it.",
+      "untranslatable": "BookFinder couldn't turn this question into a search. You can ask about the title, author, publisher, genre, language, format, publication year, pages, price, rating, stock, award winners, series and new releases. Rephrase the question, or try keyword search.",
       "aiDown": "The AI search is unavailable. Use keyword search instead.",
       "tooMany": "Too many questions, please wait {{seconds}} seconds",
       "slow": "Search took too long, try a narrower question",

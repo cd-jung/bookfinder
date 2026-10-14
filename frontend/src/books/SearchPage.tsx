@@ -77,6 +77,7 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
   const [nl, setNl] = useState<(Translation & { question: string; lang: string }) | null>(null);
   const [translating, setTranslating] = useState(false);
   const [nlError, setNlError] = useState('');
+  const [nlUntranslatable, setNlUntranslatable] = useState(false);
   const [notice, setNotice] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [draftFilters, setDraftFilters] = useState<Filters>(state.filters);
@@ -115,6 +116,7 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
     let live = true;
     setTranslating(true);
     setNlError('');
+    setNlUntranslatable(false);
     api
       .translate(nlKey)
       .then(
@@ -123,6 +125,7 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
           if (!live) return;
           setNl(null);
           setNlError(translateError(e, t));
+          setNlUntranslatable(e instanceof ApiError && e.status === 422);
         },
       )
       .finally(() => live && setTranslating(false));
@@ -324,7 +327,20 @@ export default function SearchPage({ api = booksApi }: { api?: BooksApi }) {
                 <strong>{t('search.interpretedAs')}</strong> {nl.description}
               </Alert>
             )}
-            {nlError && <Alert severity="error" sx={{ mt: 2 }} data-testid="nl-error">{nlError}</Alert>}
+            {nlError && (
+              <Alert
+                severity="error"
+                sx={{ mt: 2 }}
+                data-testid="nl-error"
+                action={
+                  nlUntranslatable ? (
+                    <Button color="inherit" size="small" onClick={() => switchMode('keyword')}>{t('search.tryKeyword')}</Button>
+                  ) : undefined
+                }
+              >
+                {nlError}
+              </Alert>
+            )}
           </Box>
         )}
       </Paper>

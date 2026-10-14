@@ -24,7 +24,7 @@ Cliquez sur **Modifier en filtres** pour copier les conditions comprises dans le
 
 ## Messages possibles
 
-- **La question n’a pas pu être interprétée. Reformulez-la.** : la question ne porte pas sur des livres ou demande quelque chose que BookFinder ne peut pas rechercher.
+- **BookFinder n’a pas pu transformer cette question en recherche.** : la question ne porte pas sur des livres ou demande quelque chose que BookFinder ne peut pas rechercher, comme le pays où un livre a été écrit. Le message indique ce que vous pouvez interroger : le titre, l’auteur, l’éditeur, le genre, la langue, le format, l’année de publication, le nombre de pages, le prix, la note, la disponibilité, les livres primés, les séries et les nouveautés. Reformulez la question ou cliquez sur **Essayer la recherche par mots-clés** pour passer à la recherche par mots-clés.
 - **La recherche par IA est indisponible. Utilisez la recherche par mots-clés.** : réessayez plus tard ou utilisez la recherche par mots-clés.
 - **La recherche a pris trop de temps ; essayez une question plus précise** : ajoutez des conditions à votre question.
 - **Trop de questions, patientez N secondes** : vous avez posé plus de 10 questions en une minute.

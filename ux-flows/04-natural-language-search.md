@@ -18,7 +18,9 @@ flowchart TD
   api --> llm["LLM -> JSON filter<br/>and / or / not, field-op-value, templates"]
   llm --> validate{"Backend validation"}
   validate -->|"unknown field / operator"| invalid
-  validate -->|"depth over 4 or<br/>more than 15 conditions"| invalid["422: 'The question could not be<br/>translated. Please rephrase it.'"]
+  validate -->|"depth over 4 or<br/>more than 15 conditions"| invalid["422: 'BookFinder couldn't turn this question<br/>into a search' + what can be searched<br/>+ 'Try keyword search' button"]
+  llm -->|"question asks for something<br/>the catalogue lacks (e.g. country)"| invalid
+  invalid -->|"'Try keyword search'"| keyword
   validate -->|"ok"| ok["200: filter + description"]
   api -->|"LLM unreachable / timeout"| down["502: 'The AI search is unavailable.<br/>Use keyword search instead.'"]
   api -->|"over 500 chars (API)"| tooLong["400: question is too long"]

@@ -24,7 +24,7 @@ Haz clic en **Editar como filtros** para copiar las condiciones entendidas en lo
 
 ## Mensajes que puedes ver
 
-- **No se pudo interpretar la pregunta. Reformúlala.**: la pregunta no trata de libros o pide algo que BookFinder no puede buscar.
+- **BookFinder no pudo convertir esta pregunta en una búsqueda.**: la pregunta no trata de libros o pide algo que BookFinder no puede buscar, como el país donde se escribió un libro. El mensaje indica por qué puedes preguntar: título, autor, editorial, género, idioma, formato, año de publicación, páginas, precio, valoración, disponibilidad, libros premiados, series y novedades. Reformula la pregunta o haz clic en **Probar la búsqueda por palabras clave** para cambiar a la búsqueda por palabras clave.
 - **La búsqueda con IA no está disponible. Usa la búsqueda por palabras clave.**: inténtalo más tarde o usa la búsqueda por palabras clave.
 - **La búsqueda tardó demasiado; prueba una pregunta más concreta**: añade más condiciones a tu pregunta.
 - **Demasiadas preguntas, espera N segundos**: hiciste más de 10 preguntas en un minuto.
