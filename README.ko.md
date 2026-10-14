@@ -129,6 +129,98 @@ sequenceDiagram
   요청할 때마다 검증하고, 쿼리는 SELECT만 해요. 카탈로그로 표현할 수 없는 질문은 추측 대신 "다르게 질문해 주세요"(422)로 답해요.
 - **설명 가능:** "해석 결과"는 필터에서 1:1로 만들어서 사용자가 조건을 하나하나 확인할 수 있고, "필터로 편집"으로 일반 필터로 바꿀 수 있어요.
 
+### 전체 처리 흐름 (모든 실패 경로 포함)
+
+```mermaid
+flowchart TD
+  Q(["4개 언어 중 하나로 한 질문"]) --> V0{"비어 있거나<br/>500자 초과?"}
+  V0 -- 예 --> E400["400: 질문 필요 / 너무 김"]
+  V0 -- 아니오 --> RL{"이 클라이언트가<br/>분당 10회 초과?"}
+  RL -- 예 --> E429["429 + Retry-After"]
+  RL -- 아니오 --> MODE{"LLM 모드"}
+  MODE -- "stub (CI, E2E)" --> FIX["카탈로그 예시의 고정 필터"]
+  MODE -- "down (장애 테스트)" --> E502
+  MODE -- real --> BUD{"오늘 AI 예산이<br/>남았나?"}
+  BUD -- 아니오 --> E502["502: AI 서비스 사용 불가<br/>(예산 소진, 시간 초과, JSON 없음·오류)"]
+  BUD -- 예 --> LLM["Workers AI, Llama 3.3 70B, temperature 0<br/>프롬프트 = 문법 + 규칙 + 카탈로그 + 예시<br/>질문은 마커 사이에 넣어 데이터로 취급"]
+  LLM --> PARSE{"출력에<br/>JSON 객체가 있나?"}
+  PARSE -- 아니오 --> E502
+  PARSE -- 예 --> ERR{"모델이<br/>{error: ...}로 답했나?"}
+  FIX --> ERR
+  ERR -- 예 --> E422["422: 다시 질문해 주세요"]
+  ERR -- 아니오 --> VAL{"검증기<br/>허용된 필드·연산자·템플릿<br/>값 타입, 깊이 ≤ 4, 조건 ≤ 15"}
+  VAL -- 통과 못함 --> E422
+  VAL -- 통과 --> DESC["describe_filter: UI 언어로<br/>'해석된 조건' 문장 생성 (필터와 1:1)"]
+  DESC --> UI["화면에 해석된 조건 표시<br/>+ 필터로 편집"]
+  UI --> LIST["GET /api/books?nl_filter=..."]
+  LIST --> VAL2{"다시 검증<br/>(URL은 신뢰하지 않음)"}
+  VAL2 -- 통과 못함 --> E400b["400: nl_filter 오류"]
+  VAL2 -- 통과 --> ORM["Django Q 객체로 컴파일<br/>ORM 경로는 카탈로그에서, 값은 바인딩 파라미터"]
+  ORM --> DB[("D1: SELECT만")]
+  DB --> RES["책 목록 한 페이지 + 패싯 개수"]
+```
+
+### 필터 언어
+
+모델은 아래의 작은 문법으로만 답할 수 있어요 (프롬프트에 들어 있고, 검증기가 강제합니다).
+
+```text
+node      := {"and": [node, ...]} | {"or": [node, ...]} | {"not": node} | condition | template
+condition := {"field": <필드 이름>, "op": <연산자>, "value": <값>}
+template  := {"template": <템플릿 이름>, "params": {...}}
+```
+
+| 필드 타입 | 허용 연산자 |
+|---|---|
+| string | `eq`, `icontains`, `in`, `isnull` |
+| number, date | `eq`, `gt`, `gte`, `lt`, `lte`, `isnull` |
+| datetime | `gt`, `gte`, `lt`, `lte`, `isnull` |
+| enum | `eq`, `in` |
+| boolean | `eq` |
+
+예: *"2015년 이후 20달러 미만 별점 4점 이상 한국 소설"* (영어·스페인어·프랑스어로 물어도 같음)은 이렇게 바뀝니다.
+
+```json
+{
+  "and": [
+    {"field": "language",       "op": "eq",  "value": "Korean"},
+    {"field": "genre",          "op": "eq",  "value": "literary-fiction"},
+    {"field": "published_year", "op": "gt",  "value": 2015},
+    {"field": "price",          "op": "lt",  "value": 20},
+    {"field": "rating",         "op": "gte", "value": 4}
+  ]
+}
+```
+
+모델은 테이블 이름도 SQL도 보지 못하고, 카탈로그에서 고르기만 합니다. 모델이 지어낸 것(없는 필드, 잘못된 연산자,
+숫자 자리에 문자열, 너무 깊은 중첩)은 쿼리를 만들기 전에 모두 거부됩니다.
+
+### 카탈로그 하나가 모든 것을 만든다
+
+```mermaid
+flowchart LR
+  CAT["카탈로그<br/>(books/catalog.py)<br/>필드: 타입, 연산자, ORM 경로,<br/>4개 언어 라벨<br/>템플릿, 예시, 한도"]
+  CAT --> P["LLM 프롬프트<br/>(허용 목록 + 예시)"]
+  CAT --> C["검증기 + 컴파일러<br/>(필터 → Django Q)"]
+  CAT --> D["'해석된 조건' 문장<br/>(4개 언어)"]
+  CAT --> S["Stub 고정 응답<br/>(LLM 없이 CI·E2E)"]
+  CAT --> X["예시 질문 칩<br/>(GET /api/nl-search/examples)"]
+  CAT2["로그 카탈로그<br/>(logs 앱)"] -. 같은 엔진 .-> C
+```
+
+검색 필드를 하나 추가하려면 카탈로그 항목 하나만 추가하면 됩니다. 프롬프트, 검증, 설명 문장, 테스트가 모두 따라옵니다.
+Logs & Monitoring 페이지도 자체 카탈로그로 같은 엔진을 써서, 관리자가 요청 로그를 자연어로 검색할 수 있습니다.
+
+### 상태 코드
+
+| 코드 | 언제 | 사용자에게 보이는 것 |
+|---|---|---|
+| 200 | 유효한 필터 | 해석된 조건 + 결과 |
+| 400 | 질문이 비었거나 너무 김, 또는 URL의 `nl_filter`가 잘못됨 | 입력 오류 |
+| 422 | 카탈로그로 표현할 수 없는 질문, 또는 모델의 필터가 검증을 통과하지 못함 | "다시 질문해 주세요" |
+| 429 | 한 클라이언트가 분당 10회 넘게 요청 | `Retry-After` 이후 다시 시도 |
+| 502 | AI 서비스 장애·시간 초과, JSON 없음·오류, 또는 오늘 AI 예산 소진 | 키워드 검색은 계속 사용 가능 |
+
 ## Help 도우미: 유저 가이드 기반 RAG
 
 도우미는 "BookFinder를 어떻게 써요?"라는 질문에만, 유저 가이드로만 답하고, 답의 출처를 항상 보여 줘요. 책 데이터는 일부러

@@ -134,6 +134,100 @@ sequenceDiagram
 - **Explainable:** "Interpreted as" is generated from the filter, 1:1, so users can check every condition, and
   "Edit as filters" turns it into ordinary filters.
 
+### The pipeline, including every failure path
+
+```mermaid
+flowchart TD
+  Q(["Question in any of the 4 languages"]) --> V0{"Empty or<br/>over 500 characters?"}
+  V0 -- yes --> E400["400: question is required / too long"]
+  V0 -- no --> RL{"Over 10 requests/min<br/>for this client?"}
+  RL -- yes --> E429["429 + Retry-After"]
+  RL -- no --> MODE{"LLM mode"}
+  MODE -- "stub (CI, E2E)" --> FIX["Fixture filter from the catalogue examples"]
+  MODE -- "down (failure tests)" --> E502
+  MODE -- real --> BUD{"Daily AI budget left?"}
+  BUD -- no --> E502["502: AI service unavailable<br/>(budget used up, timeout, no or invalid JSON)"]
+  BUD -- yes --> LLM["Workers AI, Llama 3.3 70B, temperature 0<br/>prompt = grammar + rules + catalogue + few-shots<br/>question between markers, treated as data"]
+  LLM --> PARSE{"JSON object<br/>in the output?"}
+  PARSE -- no --> E502
+  PARSE -- yes --> ERR{"Model answered<br/>{error: ...}?"}
+  FIX --> ERR
+  ERR -- yes --> E422["422: please rephrase"]
+  ERR -- no --> VAL{"Validator<br/>known fields, operators, templates<br/>typed values, depth ≤ 4, ≤ 15 conditions"}
+  VAL -- invalid --> E422
+  VAL -- valid --> DESC["describe_filter: 'Interpreted as' text<br/>in the UI language, 1:1 with the filter"]
+  DESC --> UI["Frontend shows Interpreted as<br/>+ Edit as filters"]
+  UI --> LIST["GET /api/books?nl_filter=..."]
+  LIST --> VAL2{"Validate again<br/>(the URL is untrusted)"}
+  VAL2 -- invalid --> E400b["400: nl_filter invalid"]
+  VAL2 -- valid --> ORM["Compile to Django Q objects<br/>ORM paths from the catalogue, bound parameters"]
+  ORM --> DB[("D1: SELECT only")]
+  DB --> RES["Page of books + facet counts"]
+```
+
+### The filter language
+
+The model may only answer with this small grammar (it is part of the prompt, and the validator enforces it):
+
+```text
+node      := {"and": [node, ...]} | {"or": [node, ...]} | {"not": node} | condition | template
+condition := {"field": <field name>, "op": <operator>, "value": <value>}
+template  := {"template": <template name>, "params": {...}}
+```
+
+| Field type | Allowed operators |
+|---|---|
+| string | `eq`, `icontains`, `in`, `isnull` |
+| number, date | `eq`, `gt`, `gte`, `lt`, `lte`, `isnull` |
+| datetime | `gt`, `gte`, `lt`, `lte`, `isnull` |
+| enum | `eq`, `in` |
+| boolean | `eq` |
+
+Example: *"Korean novels after 2015 under $20 with 4+ stars"* (also asked in Spanish, French or Korean) becomes
+
+```json
+{
+  "and": [
+    {"field": "language",       "op": "eq",  "value": "Korean"},
+    {"field": "genre",          "op": "eq",  "value": "literary-fiction"},
+    {"field": "published_year", "op": "gt",  "value": 2015},
+    {"field": "price",          "op": "lt",  "value": 20},
+    {"field": "rating",         "op": "gte", "value": 4}
+  ]
+}
+```
+
+The model never sees table names or SQL. It only chooses from the catalogue, and anything it invents
+(an unknown field, a wrong operator, a string where a number belongs, a filter nested too deep) is rejected
+before a query is built.
+
+### One catalogue drives everything
+
+```mermaid
+flowchart LR
+  CAT["Catalog<br/>(books/catalog.py)<br/>fields: type, operators, ORM path,<br/>labels in 4 languages<br/>templates, examples, limits"]
+  CAT --> P["LLM prompt<br/>(allow-list + few-shots)"]
+  CAT --> C["Validator + compiler<br/>(filter → Django Q)"]
+  CAT --> D["'Interpreted as' text<br/>(4 languages)"]
+  CAT --> S["Stub fixtures<br/>(CI and E2E without an LLM)"]
+  CAT --> X["Example question chips<br/>(GET /api/nl-search/examples)"]
+  CAT2["Log catalogue<br/>(logs app)"] -. same engine .-> C
+```
+
+Adding a searchable field means adding one catalogue entry: the prompt, validation, the explanation text and the
+tests all follow from it. The Logs & Monitoring page reuses the same engine with its own catalogue, so admins
+can search request logs in plain language too.
+
+### Status codes
+
+| Code | When | What the user sees |
+|---|---|---|
+| 200 | Valid filter | "Interpreted as" + results |
+| 400 | Empty or too long question, or an invalid `nl_filter` in the URL | Input error |
+| 422 | The question can't be expressed with the catalogue, or the model's filter fails validation | "Please rephrase" |
+| 429 | More than 10 translate requests per minute from one client | Try again after `Retry-After` |
+| 502 | AI service down, timed out, returned no or invalid JSON, or the daily AI budget is used up | Keyword search still works |
+
 ## Help assistant: RAG over the User Guide
 
 The assistant answers only "how do I use BookFinder?" questions, only from the User Guide, and always shows
