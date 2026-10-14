@@ -222,6 +222,7 @@ export const es: Messages = {
     "tabKeyword": "Palabra clave",
     "nlLabel": "Buscar registros en lenguaje natural",
     "nlPlaceholder": "p. ej. errores en la última hora",
+    "nlUntranslatable": "No se pudo interpretar la pregunta. Reformúlala.",
     "nlSubmit": "Traducir y buscar",
     "keywordLabel": "Buscar registros por palabra clave",
     "keywordPlaceholder": "Ruta o mensaje",

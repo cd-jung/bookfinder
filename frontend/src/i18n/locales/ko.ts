@@ -222,6 +222,7 @@ export const ko: Messages = {
     "tabKeyword": "키워드",
     "nlLabel": "자연어로 로그 검색",
     "nlPlaceholder": "예: 최근 1시간 동안의 오류",
+    "nlUntranslatable": "질문을 해석하지 못했어요. 다르게 질문해 주세요.",
     "nlSubmit": "해석하고 검색",
     "keywordLabel": "키워드로 로그 검색",
     "keywordPlaceholder": "경로 또는 메시지",

@@ -54,7 +54,7 @@ type T = (key: string, options?: Record<string, unknown>) => string;
 function errorText(error: unknown, fallback: string, t: T) {
   if (error instanceof ApiError) {
     if (error.status === 403) return t('admin.signInRequired');
-    if (error.status === 422) return t('search.errors.untranslatable');
+    if (error.status === 422) return t('logs.nlUntranslatable');
     if (error.status === 502 || error.status === 503) return t('search.errors.aiDown');
     if (error.status === 429) return t('search.errors.tooMany', { seconds: (error.body as { retryAfter?: number } | null)?.retryAfter ?? 60 });
     return error.detail;
@@ -117,7 +117,7 @@ export default function LogsPage({ api = logsApi }: { api?: LogsApi }) {
       setPage(1);
     } catch (e) {
       setNl(null);
-      setSearchError(errorText(e, t('search.errors.untranslatable'), t));
+      setSearchError(errorText(e, t('logs.nlUntranslatable'), t));
     } finally {
       setTranslating(false);
     }

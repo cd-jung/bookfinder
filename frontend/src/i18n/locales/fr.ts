@@ -222,6 +222,7 @@ export const fr: Messages = {
     "tabKeyword": "Mot-clé",
     "nlLabel": "Rechercher dans les journaux en langage naturel",
     "nlPlaceholder": "ex. erreurs de la dernière heure",
+    "nlUntranslatable": "La question n’a pas pu être interprétée. Reformulez-la.",
     "nlSubmit": "Traduire et rechercher",
     "keywordLabel": "Rechercher dans les journaux par mot-clé",
     "keywordPlaceholder": "Chemin ou message",

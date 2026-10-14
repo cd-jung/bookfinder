@@ -221,6 +221,7 @@ export const en = {
     "tabKeyword": "Keyword",
     "nlLabel": "Search logs in plain language",
     "nlPlaceholder": "e.g. errors in the last hour",
+    "nlUntranslatable": "The question could not be translated. Please rephrase it.",
     "nlSubmit": "Translate and search",
     "keywordLabel": "Search logs by keyword",
     "keywordPlaceholder": "Path or message",
