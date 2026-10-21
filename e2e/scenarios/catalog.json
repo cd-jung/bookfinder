@@ -1302,7 +1302,7 @@
           "rule": "S1",
           "account": "anonymous",
           "group": "Layout",
-          "title": "Menu entries open Book Search, User Guide and Logs & Monitoring; Coverage shows the report inside the layout",
+          "title": "Menu entries open Book Search, User Guide and Logs & Monitoring; Coverage shows the report inside the layout without sign-in",
           "nodes": [
             "08:home",
             "08:guide",
@@ -1338,7 +1338,7 @@
           "rule": "S1",
           "account": "anonymous",
           "group": "Menu",
-          "title": "@real on the public site Logs & Monitoring and Coverage link to the admin site",
+          "title": "@real on the public site Logs & Monitoring links to the admin site; Coverage opens on the public site",
           "nodes": [
             "08:adminLink"
           ]

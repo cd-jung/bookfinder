@@ -167,11 +167,12 @@ GitHub 저장소를 public으로 만들려면 `--public`을 붙입니다.
 - **Logs & Monitoring** 페이지는 이 테이블을 읽습니다: 대시보드(요청 수, 5xx 오류율, p95 지연 시간,
   4xx 수, 시간별 요청 수)와 자연어(같은 자연어 -> ORM 엔진) 또는 키워드 로그 검색.
 
-### 관리자 사이트 (로그, 모니터링, 커버리지)
+### 관리자 사이트 (로그, 모니터링)
 
-- 공개 사이트(`bookfinder`)는 도서 검색과 사용자 가이드만 제공해요. **로그 및 모니터링**, **커버리지**, UX 흐름은
-  별도 관리자 Worker(`bookfinder-admin`, `frontend/admin-worker.js`)에 있고, `scripts/build-site.sh`가
-  `frontend/dist-admin`으로 빌드해요. 공개 사이트의 해당 메뉴는 관리자 사이트로 연결돼요.
+- 공개 사이트(`bookfinder`)는 도서 검색, 사용자 가이드, **커버리지**, UX 흐름(`/ux-flows/`)을 제공해요.
+  커버리지는 일부러 공개해요(2026-10-21): 테스트 결과와 흐름도만 있고 요청 데이터는 없어요.
+  **로그 및 모니터링**은 별도 관리자 Worker(`bookfinder-admin`, `frontend/admin-worker.js`)에 있고,
+  `scripts/build-site.sh`가 `frontend/dist-admin`으로 빌드해요. 공개 사이트의 해당 메뉴는 관리자 사이트로 연결돼요.
 - **Cloudflare Access**(Zero Trust Free, 팀 `jolly-smoke-0c81`)가 관리자 Worker 전체를 보호해요. 정책은
   *Include → Emails* = `project.config.json`의 `admin.emails`(현재 `kookastudios@gmail.com`), 로그인은 One-time PIN.
 - 다중 방어: 관리자 Worker도 Access JWT(`Cf-Access-Jwt-Assertion`, RS256, `aud`, `iss`, 만료, 이메일 허용 목록)를
@@ -186,7 +187,7 @@ GitHub 저장소를 public으로 만들려면 `--public`을 붙입니다.
 ### UI
 
 - 모든 컴포넌트는 **MUI**. 라이트/다크 모드는 OS 설정을 따릅니다.
-- 왼쪽 메뉴: **Home**(프로젝트의 주요 기능), **User Guide**, **Logs & Monitoring**, **Coverage**.
+- 왼쪽 메뉴: **Home**(프로젝트의 주요 기능), **User Guide**, **Coverage**, **Logs & Monitoring**.
 - 모든 페이지에 떠 있는 **Help** 버튼이 RAG 도우미를 엽니다.
 
 ### 방법론과 자동화

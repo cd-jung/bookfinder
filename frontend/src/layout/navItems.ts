@@ -18,8 +18,8 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { labelKey: 'nav.search', to: '/', icon: SearchOutlined, site: 'public' },
   { labelKey: 'nav.guide', to: '/guide', icon: MenuBookOutlined, site: 'public' },
+  { labelKey: 'nav.coverage', to: '/coverage', icon: FactCheckOutlined, site: 'public' },
   { labelKey: 'nav.logs', to: '/logs', icon: MonitorHeartOutlined, site: 'admin' },
-  { labelKey: 'nav.coverage', to: '/coverage', icon: FactCheckOutlined, site: 'admin' },
 ];
 
 /** Where a menu entry points from the current site: an in-app route, or the other site's full URL. */

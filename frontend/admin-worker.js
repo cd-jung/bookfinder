@@ -1,4 +1,4 @@
-// Admin site Worker: serves frontend/dist-admin (logs, monitoring, coverage) and proxies /api/* to the API
+// Admin site Worker: serves frontend/dist-admin (logs, monitoring) and proxies /api/* to the API
 // Worker over a service binding. Cloudflare Access protects this whole hostname; this script verifies the
 // Access JWT itself as well (defense in depth) and fails closed until Access is configured.
 //

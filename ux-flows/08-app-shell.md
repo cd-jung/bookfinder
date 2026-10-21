@@ -1,8 +1,8 @@
 # 8. App Shell & Navigation
 
 Every page shares the header (BookFinder; clicking it opens a clean search), the left menu and the
-floating Help button. The public site serves Book Search and the User Guide; Logs & Monitoring and
-Coverage are on the admin site, so on the public site those entries open the admin site.
+floating Help button. The public site serves Book Search, the User Guide and Coverage (open to everyone);
+Logs & Monitoring is on the admin site, so on the public site that entry opens the admin site.
 
 ```mermaid
 flowchart TD
@@ -10,10 +10,10 @@ flowchart TD
   shell --> viewport{"Viewport"}
   viewport -->|"desktop"| permanent["Menu always visible on the left"]
   viewport -->|"mobile"| drawer["Menu button opens a drawer"]
-  shell --> menu["Menu: Book Search, User Guide,<br/>Logs & Monitoring, Coverage"]
+  shell --> menu["Menu: Book Search, User Guide,<br/>Coverage, Logs & Monitoring"]
   menu -->|"Book Search"| home[["Book search<br/>(scenarios 1-4)"]]
   menu -->|"User Guide"| guide[["User Guide<br/>(scenario 9)"]]
-  menu -->|"Logs & Monitoring / Coverage<br/>on the public site"| adminLink["Opens the admin site<br/>(sign-in with Cloudflare Access)"]
+  menu -->|"Logs & Monitoring<br/>on the public site"| adminLink["Opens the admin site<br/>(sign-in with Cloudflare Access)"]
   adminLink --> logs
   menu -->|"Logs & Monitoring"| logs[["Logs & Monitoring<br/>(scenario 10)"]]
   menu -->|"Coverage"| coverage["Coverage report inside the layout<br/>(build hint when not built yet)"]

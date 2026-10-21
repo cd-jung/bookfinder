@@ -170,11 +170,12 @@ error 1102, so this template now assumes **Workers Paid**. To run on Free, move 
 - The **Logs & Monitoring** page reads the table: dashboard (requests, 5xx error rate, p95 latency,
   4xx count, requests per hour) and log search in plain language (same NL -> ORM engine) or by keyword.
 
-### Admin site (logs, monitoring, coverage)
+### Admin site (logs, monitoring)
 
-- The public site (`bookfinder`) serves Book Search and the User Guide. **Logs & Monitoring**, **Coverage** and
-  the UX flows are on a separate admin Worker (`bookfinder-admin`, `frontend/admin-worker.js`), built into
-  `frontend/dist-admin` by `scripts/build-site.sh`. On the public site those menu entries link to the admin site.
+- The public site (`bookfinder`) serves Book Search, the User Guide, **Coverage** and the UX flows (`/ux-flows/`).
+  Coverage is public on purpose (2026-10-21): it holds test results and flow diagrams, no request data.
+  **Logs & Monitoring** is on a separate admin Worker (`bookfinder-admin`, `frontend/admin-worker.js`), built into
+  `frontend/dist-admin` by `scripts/build-site.sh`. On the public site that menu entry links to the admin site.
 - **Cloudflare Access** (Zero Trust Free, team `jolly-smoke-0c81`) protects the whole admin Worker: policy
   *Include → Emails* = `project.config.json` `admin.emails` (now `kookastudios@gmail.com`), One-time PIN login.
 - Defence in depth: the admin Worker also verifies the Access JWT (`Cf-Access-Jwt-Assertion`, RS256, `aud`,
@@ -190,7 +191,7 @@ error 1102, so this template now assumes **Workers Paid**. To run on Free, move 
 ### UI
 
 - **MUI** for every component; light and dark mode follow the OS.
-- Left menu: **Home** (the project's main feature), **User Guide**, **Logs & Monitoring**, **Coverage**.
+- Left menu: **Home** (the project's main feature), **User Guide**, **Coverage**, **Logs & Monitoring**.
 - Floating **Help** button opens the RAG assistant on every page.
 
 ### Method and automation

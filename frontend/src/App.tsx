@@ -21,7 +21,7 @@ export default function App() {
         <Route path="guide" element={SITE === 'admin' ? <OtherSite url={PUBLIC_URL} /> : <GuidePage />} />
         <Route path="guide/:page" element={SITE === 'admin' ? <OtherSite url={PUBLIC_URL} /> : <GuidePage />} />
         <Route path="logs" element={SITE === 'public' ? <OtherSite url={ADMIN_URL} /> : <LogsPage />} />
-        <Route path="coverage" element={SITE === 'public' ? <OtherSite url={ADMIN_URL} /> : <CoveragePage />} />
+        <Route path="coverage" element={SITE === 'admin' ? <OtherSite url={PUBLIC_URL} /> : <CoveragePage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

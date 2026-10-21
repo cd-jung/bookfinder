@@ -59,7 +59,7 @@ jobs:
       - name: Scenario coverage summary
         run: npm run coverage
 
-      - name: Build sites (public app; admin app + coverage report + /ux-flows/)
+      - name: Build sites (public app + coverage report + /ux-flows/; admin app)
         run: npm run build:site
 
       - uses: actions/upload-artifact@v4
@@ -182,7 +182,8 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' "$API/api/logs/stats")" = "403"
           # 403 from the admin Worker before Access is on; 302 to the Access sign-in page once it is.
           case "$(curl -s -o /dev/null -w '%{http_code}' "$ADMIN/api/logs/stats")" in 302|403) ;; *) exit 1 ;; esac
-          test -z "$(curl -fsS "$APP/reports/coverage.html" | grep 'content="coverage-report"' || true)"
+          # Coverage is public: the report is on the public site, no sign-in.
+          curl -fsS "$APP/reports/coverage.html" | grep -q 'content="coverage-report"'
           echo "Deployed: $APP  API: $API"
 
       - name: Real-model E2E checks on the deployed site (@real)

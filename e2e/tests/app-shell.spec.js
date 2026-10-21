@@ -6,9 +6,11 @@ test.describe('App shell & navigation', () => {
     await page.goto('/');
     await expect(page.getByRole('banner')).toContainText('BookFinder');
     const menu = page.getByRole('navigation', { name: 'Main menu' });
-    for (const label of ['Book Search', 'User Guide', 'Logs & Monitoring', 'Coverage']) {
+    const labels = ['Book Search', 'User Guide', 'Coverage', 'Logs & Monitoring'];
+    for (const label of labels) {
       await expect(menu.getByRole('link', { name: label })).toBeVisible();
     }
+    await expect(menu.getByRole('link')).toHaveText(labels);
     await expect(page.getByRole('button', { name: 'Help' })).toBeVisible();
   });
 
@@ -46,12 +48,14 @@ test.describe('App shell & navigation', () => {
     await expect(page).toHaveURL(/\/$/);
   });
 
-  test('[SHELL-005] @real on the public site Logs & Monitoring and Coverage link to the admin site', async ({ page }) => {
+  test('[SHELL-005] @real on the public site Logs & Monitoring links to the admin site; Coverage opens on the public site', async ({ page }) => {
     const admin = process.env.ADMIN_URL;
     test.skip(!admin, 'ADMIN_URL is not set');
     await page.goto('/');
     const menu = page.getByRole('navigation', { name: 'Main menu' });
     await expect(menu.getByRole('link', { name: 'Logs & Monitoring' })).toHaveAttribute('href', `${admin}/logs`);
-    await expect(menu.getByRole('link', { name: 'Coverage' })).toHaveAttribute('href', `${admin}/coverage`);
+    await expect(menu.getByRole('link', { name: 'Coverage' })).toHaveAttribute('href', '/coverage');
+    await menu.getByRole('link', { name: 'Coverage' }).click();
+    await expect(page.frameLocator('[data-testid="coverage-frame"]').getByRole('heading', { level: 1 })).toContainText('Coverage');
   });
 });

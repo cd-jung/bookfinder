@@ -8,10 +8,10 @@ El menú de la izquierda tiene cuatro secciones:
 
 - **Búsqueda de libros**: busca en el catálogo por palabra clave, con filtros o en lenguaje natural.
 - **Guía del usuario**: estas páginas.
-- **Registros y monitorización**: registros de solicitudes y estado del servicio.
 - **Cobertura**: cuánto de BookFinder está cubierto por pruebas automáticas, dentro de la aplicación.
+- **Registros y monitorización**: registros de solicitudes y estado del servicio.
 
-Registros y monitorización y Cobertura están en un **sitio de administración** aparte. Al abrirlos desde el menú vas a ese sitio e inicias sesión con un correo autorizado (recibirás un código de un solo uso).
+Registros y monitorización está en un **sitio de administración** aparte. Al abrirlo desde el menú vas a ese sitio e inicias sesión con un correo autorizado (recibirás un código de un solo uso). Cobertura está abierta a todos, sin iniciar sesión.
 
 Haz clic en **BookFinder** arriba para empezar una búsqueda nueva y vacía. En una pantalla pequeña, abre el menú con
 el botón de menú de la esquina superior izquierda.

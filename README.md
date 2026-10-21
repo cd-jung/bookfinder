@@ -54,8 +54,8 @@ search design and a RAG prototype). It shows three things:
 flowchart LR
   user(["Browser"])
   subgraph edge["Cloudflare edge (DDoS protection, TLS)"]
-    fe["Frontend Worker (public)<br/>Static Assets: React + MUI app<br/>Book Search, User Guide<br/>security headers (_headers)"]
-    adm["Admin Worker (Cloudflare Access)<br/>Logs & Monitoring, Coverage, UX flows<br/>verifies Access JWT, proxies /api"]
+    fe["Frontend Worker (public)<br/>Static Assets: React + MUI app<br/>Book Search, User Guide, Coverage, UX flows<br/>security headers (_headers)"]
+    adm["Admin Worker (Cloudflare Access)<br/>Logs & Monitoring<br/>verifies Access JWT, proxies /api"]
     api["API Worker<br/>Django on Python Workers (Pyodide)<br/>books, NL search, Help RAG, logs"]
     rl["Rate Limiting bindings<br/>API_LIMITER 120/min, AI_LIMITER 10/min"]
   end
@@ -278,7 +278,7 @@ flowchart TB
 | Compute / storage | `limits.cpu_ms` 5,000 per request, 64 KB request bodies, logs older than 14 days pruned, seed runs only once |
 | Prompt injection | User text inside markers, context-only prompts, catalogue allow-list, server-built links |
 | Web | CSP and security headers on the site, `nosniff` / `X-Frame-Options` on the API, CORS limited to the app, Markdown rendered without HTML |
-| Admin pages | Logs, monitoring and coverage are on a separate admin Worker behind **Cloudflare Access** (email allow-list); the API serves `/api/logs` only to that Worker (shared secret, fails closed) |
+| Admin pages | Logs and monitoring are on a separate admin Worker behind **Cloudflare Access** (email allow-list); the API serves `/api/logs` only to that Worker (shared secret, fails closed). Coverage and UX flows are public (no personal data) |
 | Secrets & privacy | No accounts; logs keep a salted IP hash; `DJANGO_SECRET_KEY` is a Worker secret set by CD; deploys use a scoped GitHub secret |
 
 Details, measured numbers and the recommended dashboard settings (billing alert, Cloudflare Access on the admin

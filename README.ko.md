@@ -52,8 +52,8 @@ BookFinder는 2026-10-12에 1시간짜리 "AI로 웹앱 만들기" 라이브 인
 flowchart LR
   user(["브라우저"])
   subgraph edge["Cloudflare 엣지 (DDoS 방어, TLS)"]
-    fe["프론트엔드 Worker (공개)<br/>Static Assets: React + MUI 앱<br/>도서 검색, 사용자 가이드<br/>보안 헤더 (_headers)"]
-    adm["관리자 Worker (Cloudflare Access)<br/>로그 및 모니터링, 커버리지, UX 흐름<br/>Access JWT 검증, /api 프록시"]
+    fe["프론트엔드 Worker (공개)<br/>Static Assets: React + MUI 앱<br/>도서 검색, 사용자 가이드, 커버리지, UX 흐름<br/>보안 헤더 (_headers)"]
+    adm["관리자 Worker (Cloudflare Access)<br/>로그 및 모니터링<br/>Access JWT 검증, /api 프록시"]
     api["API Worker<br/>Python Workers(Pyodide) 위의 Django<br/>책, 자연어 검색, Help RAG, 로그"]
     rl["Rate Limiting 바인딩<br/>API_LIMITER 분당 120, AI_LIMITER 분당 10"]
   end
@@ -267,7 +267,7 @@ flowchart TB
 | 연산·저장 | 요청당 `limits.cpu_ms` 5,000, 요청 본문 64KB, 14일 지난 로그 삭제, 시드는 한 번만 |
 | 프롬프트 인젝션 | 사용자 문장은 마커 안에, 문맥 전용 프롬프트, 카탈로그 허용 목록, 서버가 만드는 링크 |
 | 웹 | 사이트에 CSP와 보안 헤더, API에 `nosniff`·`X-Frame-Options`, 앱 출처만 허용하는 CORS, HTML 없이 렌더링하는 Markdown |
-| 관리자 페이지 | 로그, 모니터링, 커버리지는 **Cloudflare Access**(이메일 허용 목록) 뒤의 별도 관리자 Worker에 있고, API는 `/api/logs`를 그 Worker에만 제공(공유 시크릿, 없으면 차단) |
+| 관리자 페이지 | 로그와 모니터링은 **Cloudflare Access**(이메일 허용 목록) 뒤의 별도 관리자 Worker에 있고, API는 `/api/logs`를 그 Worker에만 제공(공유 시크릿, 없으면 차단). 커버리지와 UX 흐름은 공개(개인 데이터 없음) |
 | 시크릿과 개인정보 | 계정 없음, 로그에는 솔트를 넣은 IP 해시만, `DJANGO_SECRET_KEY`는 CD가 설정하는 Worker 시크릿, 배포는 범위를 제한한 GitHub 시크릿 사용 |
 
 세부 사항, 측정값, 권장 대시보드 설정(결제 알림, 관리자 사이트용 Cloudflare Access, GitHub secret scanning)은

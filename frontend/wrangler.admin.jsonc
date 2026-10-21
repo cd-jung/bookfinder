@@ -1,5 +1,5 @@
 {
-	// Admin Worker: logs, monitoring and coverage. Protect the whole hostname with Cloudflare Access
+	// Admin Worker: logs and monitoring. Protect the whole hostname with Cloudflare Access
 	// (Workers & Pages -> this Worker -> Settings -> Domains & Routes -> workers.dev and Preview URLs).
 	"name": "bookfinder-admin", // from project.config.json
 	"main": "./admin-worker.js",

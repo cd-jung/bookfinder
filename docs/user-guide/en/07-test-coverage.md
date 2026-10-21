@@ -3,7 +3,7 @@
 The **Coverage** page shows how much of BookFinder is checked by automated tests. It opens inside BookFinder like the other menu pages
 and is rebuilt on every deployment. Use **Open in a new tab** to see the report on its own.
 
-> **Administrators only.** This page is on the admin site. Sign in with an approved email address; a one-time code is sent to that address. Without signing in you see **Sign-in required**.
+> **Open to everyone.** You do not need to sign in to see this page.
 
 ## What the page shows
 

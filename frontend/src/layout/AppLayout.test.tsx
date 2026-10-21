@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
 import { APP_NAME } from '../config';
@@ -16,6 +16,13 @@ describe('AppLayout', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Open menu' }));
     const menu = screen.getByRole('navigation', { name: 'Main menu' });
     NAV_ITEMS.forEach((item) => expect(menu).toHaveTextContent(i18n.t(item.labelKey)));
+  });
+
+  it('lists Coverage third, before Logs & Monitoring', async () => {
+    renderAt(<App />);
+    await userEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    const links = within(screen.getByRole('navigation', { name: 'Main menu' })).getAllByRole('link');
+    expect(links.map((l) => l.textContent)).toEqual(['Book Search', 'User Guide', 'Coverage', 'Logs & Monitoring']);
   });
 
   it('marks the current page and links Coverage to the static report', async () => {

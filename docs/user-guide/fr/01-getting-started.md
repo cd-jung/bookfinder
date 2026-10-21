@@ -8,10 +8,10 @@ Le menu de gauche comporte quatre sections :
 
 - **Recherche de livres** : cherchez dans le catalogue par mot-clé, avec des filtres ou en langage naturel.
 - **Guide de l'utilisateur** : ces pages.
-- **Journaux et surveillance** : journaux des requêtes et état du service.
 - **Couverture** : la part de BookFinder vérifiée par des tests automatiques, affichée dans l'application.
+- **Journaux et surveillance** : journaux des requêtes et état du service.
 
-Journaux et surveillance et Couverture se trouvent sur un **site d'administration** séparé. En les ouvrant depuis le menu, vous y êtes redirigé et vous vous connectez avec une adresse e-mail autorisée (un code à usage unique vous est envoyé).
+Journaux et surveillance se trouve sur un **site d'administration** séparé. En l'ouvrant depuis le menu, vous y êtes redirigé et vous vous connectez avec une adresse e-mail autorisée (un code à usage unique vous est envoyé). Couverture est ouverte à tous, sans connexion.
 
 Cliquez sur **BookFinder** en haut pour démarrer une nouvelle recherche vide. Sur un petit écran, ouvrez le menu avec
 le bouton de menu en haut à gauche.

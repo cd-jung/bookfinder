@@ -8,10 +8,10 @@ The left menu has four sections:
 
 - **Book Search**: search the catalogue by keyword, with filters, or in plain language.
 - **User Guide**: these pages.
-- **Logs & Monitoring**: request logs and service health.
 - **Coverage**: how much of BookFinder is covered by automated tests, shown inside the app.
+- **Logs & Monitoring**: request logs and service health.
 
-Logs & Monitoring and Coverage are on a separate **admin site** for administrators. Opening them from the menu takes you there, and you sign in with an approved email address (a one-time code is sent to it).
+Logs & Monitoring is on a separate **admin site** for administrators. Opening it from the menu takes you there, and you sign in with an approved email address (a one-time code is sent to it). Coverage is open to everyone, with no sign-in.
 
 Click **BookFinder** at the top to start a new, empty search. On a small screen, open the menu with the
 menu button in the top-left corner.

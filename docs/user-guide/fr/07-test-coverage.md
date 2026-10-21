@@ -4,7 +4,7 @@ La page **Couverture** montre la part de BookFinder vérifiée par des tests aut
 comme les autres pages du menu et est régénérée à chaque déploiement. Utilisez **Ouvrir dans un nouvel onglet** pour
 voir le rapport seul. Le rapport est un outil pour les développeurs et il est affiché en anglais.
 
-> **Réservé aux administrateurs.** Cette page se trouve sur le site d'administration. Connectez-vous avec une adresse e-mail autorisée ; un code à usage unique vous est envoyé. Sans connexion, vous voyez **Connexion requise**.
+> **Ouverte à tous.** Aucune connexion n'est nécessaire pour voir cette page.
 
 ## Ce que montre la page
 
